@@ -414,6 +414,47 @@ export async function acceptPreferenceMemoryProposal(
   };
 }
 
+export async function acceptAllPreferenceMemoryProposals(
+  client: CommandClient,
+  state: WorkbenchScreenState,
+  proposedMemoryTexts: Record<string, string>,
+): Promise<WorkbenchScreenState> {
+  if (state.pendingMemoryProposals.length === 0) {
+    return state;
+  }
+
+  const acceptedMemory = [];
+  for (const proposal of state.pendingMemoryProposals) {
+    const proposedMemoryText = (proposedMemoryTexts[proposal.id] ?? proposal.proposedMemoryText).trim();
+    if (!proposedMemoryText) {
+      continue;
+    }
+    acceptedMemory.push(
+      await client.agentMemoryUpdate(state.workspaceId, {
+        ...proposal,
+        proposedMemoryText,
+      }),
+    );
+  }
+
+  return {
+    ...state,
+    preferenceMemory: [...state.preferenceMemory, ...acceptedMemory],
+    pendingMemoryProposals: [],
+    workbench: {
+      ...state.workbench,
+      messages: [
+        ...state.workbench.messages,
+        {
+          id: `agent-${state.workbench.messages.length + 1}`,
+          sender: 'agent',
+          body: `Preference memory review accepted: ${acceptedMemory.length} item(s).`,
+        },
+      ],
+    },
+  };
+}
+
 export function rejectPreferenceMemoryProposal(
   state: WorkbenchScreenState,
   proposalId: string,
@@ -434,6 +475,29 @@ export function rejectPreferenceMemoryProposal(
           id: `agent-${state.workbench.messages.length + 1}`,
           sender: 'agent',
           body: 'Preference memory proposal rejected.',
+        },
+      ],
+    },
+  };
+}
+
+export function rejectAllPreferenceMemoryProposals(state: WorkbenchScreenState): WorkbenchScreenState {
+  if (state.pendingMemoryProposals.length === 0) {
+    return state;
+  }
+
+  const rejectedCount = state.pendingMemoryProposals.length;
+  return {
+    ...state,
+    pendingMemoryProposals: [],
+    workbench: {
+      ...state.workbench,
+      messages: [
+        ...state.workbench.messages,
+        {
+          id: `agent-${state.workbench.messages.length + 1}`,
+          sender: 'agent',
+          body: `Preference memory review rejected: ${rejectedCount} item(s).`,
         },
       ],
     },
@@ -1129,6 +1193,28 @@ export async function reviseActivePreview(
       ],
     },
   };
+}
+
+export async function requestSmallerStartAction(
+  client: CommandClient,
+  state: WorkbenchScreenState,
+): Promise<WorkbenchScreenState> {
+  const nextAction = state.workbench.nodes.find((node) => node.kind === 'next_action');
+  if (!nextAction) {
+    return state;
+  }
+
+  return submitAgentMessage(
+    client,
+    {
+      ...state,
+      workbench: {
+        ...state.workbench,
+        selectedNodeId: nextAction.id,
+      },
+    },
+    'Make the current Start Mode action smaller and keep it as a preview.',
+  );
 }
 
 function queuePreviewReviewProposals(

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   applyAgentPreview,
+  buildPreviewDiff,
+  buildReturnContext,
   buildStartModeView,
   buildInitialWorkbench,
   buildStartTimerState,
@@ -14,6 +16,7 @@ import {
   leaveStartMode,
   presentCommandError,
   previewWriteSummary,
+  recommendSupportTemplates,
   selectRightPaneMode,
   resolveWorkbenchShortcut,
   rejectActivePreview,
@@ -167,6 +170,128 @@ test('preview summary states concrete write counts', () => {
     }),
     'Accepting will add 1 draft node, 1 draft edge, 1 memory update, 1 check-in, and 1 strategy experiment.',
   );
+});
+
+test('builds a preview diff with concrete proposed write rows', () => {
+  const model = buildInitialWorkbench();
+  const diff = buildPreviewDiff({
+    ...model.activePreview,
+    proposedMemory: [
+      {
+        id: 'memory-1',
+        proposedMemoryText: 'Prefer a visible return cue.',
+        evidenceReference: 'check-in-1',
+      },
+    ],
+    proposedCheckIns: [{ id: 'check-in-1', workspaceId: 'default-workspace', nodeId: 'next-1', body: 'Started.' }],
+    proposedStrategyExperiments: [
+      {
+        id: 'strategy-1',
+        supportTemplateId: 'visible-checklist',
+        customSupportTitle: null,
+        context: 'work',
+        helpedStart: true,
+        helpedContinue: false,
+        helpedReturn: true,
+        helpedClarifyNextAction: false,
+        obstacleNote: 'Checklist stayed visible.',
+        nextDecision: 'keep',
+      },
+    ],
+  });
+
+  assert.deepEqual(diff.counts, {
+    nodesToAdd: 1,
+    edgesToAdd: 1,
+    memoryToReview: 1,
+    checkInsToSave: 1,
+    strategyExperimentsToSave: 1,
+  });
+  assert.deepEqual(
+    diff.rows.map((row) => [row.kind, row.label, row.detail]),
+    [
+      ['node', 'Add next action', 'Find one example to paste below the outline'],
+      ['edge', 'Add relationship', 'task-1 -> draft-next-2 (breaks down to)'],
+      ['memory', 'Review preference memory', 'Prefer a visible return cue.'],
+      ['check_in', 'Save check-in', 'Started.'],
+      ['strategy_experiment', 'Save strategy experiment', 'keep visible-checklist'],
+    ],
+  );
+  assert.equal(diff.unsupportedMutationsNotice, 'No update or delete operations are included in this preview.');
+});
+
+test('builds return context from current next action, blocker, return cue, and support result', () => {
+  const model = buildInitialWorkbench();
+  const context = buildReturnContext(model, [
+    {
+      id: 'strategy-1',
+      supportTemplateId: 'visible-checklist',
+      customSupportTitle: null,
+      context: 'work',
+      helpedStart: true,
+      helpedContinue: false,
+      helpedReturn: true,
+      helpedClarifyNextAction: false,
+      obstacleNote: 'Checklist was useful after reopening the draft.',
+      nextDecision: 'keep',
+    },
+  ]);
+
+  assert.deepEqual(context, {
+    nextAction: 'Open the draft and write three bullets',
+    blocker: 'Missing examples',
+    returnCue: 'Return to: Open the draft and write three bullets',
+    supportResult: 'keep visible-checklist: helped start and return. Checklist was useful after reopening the draft.',
+  });
+});
+
+test('recommends support templates with one-sentence non-medical reasons', () => {
+  const base = buildInitialWorkbench();
+  const model = {
+    ...base,
+    nodes: [
+      ...base.nodes,
+      {
+        id: 'blocker-2',
+        kind: 'blocker',
+        title: 'I keep losing the restart point after interruptions',
+        status: 'Visible',
+        x: 25,
+        y: 30,
+      },
+    ],
+  };
+  const recommendations = recommendSupportTemplates(model, [
+    {
+      id: 'return-cue',
+      category: 'external_memory',
+      title: 'Visible return cue',
+      steps: ['Leave one line that says where to restart.'],
+      defaultContexts: ['work'],
+      sourceNote: 'General external-memory strategy pattern.',
+      safetyNote: 'Self-help execution support, not treatment advice.',
+    },
+    {
+      id: 'quieter-workspace',
+      category: 'sensory_environment',
+      title: 'Quieter workspace',
+      steps: ['Move one distracting object out of view.'],
+      defaultContexts: ['work'],
+      sourceNote: 'General low-risk environment adjustment pattern.',
+      safetyNote: 'Self-help execution support, not treatment advice.',
+    },
+  ]);
+
+  assert.equal(recommendations[0].template.id, 'return-cue');
+  assert.equal(
+    recommendations[0].reason,
+    'Matches the current return cue or context-loss blocker, so it keeps the restart point visible.',
+  );
+  assert.equal(
+    recommendations.every((recommendation) => !/[.!?].+[.!?]/.test(recommendation.reason)),
+    true,
+  );
+  assert.equal(/diagnos|treat|symptom|clinical|score|streak/i.test(recommendations[0].reason), false);
 });
 
 test('right pane selection prioritizes setup and active preview over task panels', () => {

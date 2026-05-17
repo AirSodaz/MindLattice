@@ -9,6 +9,7 @@ import type {
   StartTimerState,
   WorkbenchScreenCheckIn,
 } from './types';
+import type { ReturnContext } from '../workbenchModel';
 
 export type StartPanelProps = {
   attentionSession: ActiveAttentionSession | null;
@@ -18,6 +19,7 @@ export type StartPanelProps = {
   hasStartableAction: boolean;
   isCheckInSaving: boolean;
   isSessionBusy: boolean;
+  returnContext?: ReturnContext | null;
   sessionCompletionNote: string;
   startModeView: StartModeView;
   startTimerState: StartTimerState | null;
@@ -25,6 +27,7 @@ export type StartPanelProps = {
   onCheckInDraftChange: (value: string) => void;
   onCloseSession: () => void;
   onEnterFocusMode?: () => void;
+  onRequestSmallerAction?: () => void;
   onSaveCheckIn: () => void;
   onSessionCompletionNoteChange: (value: string) => void;
   onStartSession: () => void;
@@ -41,10 +44,12 @@ export function StartPanel({
   onCheckInDraftChange,
   onCloseSession,
   onEnterFocusMode,
+  onRequestSmallerAction,
   onSaveCheckIn,
   onSessionCompletionNoteChange,
   onStartSession,
   sessionCompletionNote,
+  returnContext,
   startModeView,
   startTimerState,
   workspaceReady,
@@ -80,6 +85,33 @@ export function StartPanel({
         ) : null}
       </div>
       <p>{startModeView.minimumDone}</p>
+      {returnContext ? (
+        <div className="return-context" aria-label="Return context">
+          <span className="eyebrow">Return context</span>
+          <dl>
+            <div>
+              <dt>Next action</dt>
+              <dd>{returnContext.nextAction}</dd>
+            </div>
+            {returnContext.blocker ? (
+              <div>
+                <dt>Blocker</dt>
+                <dd>{returnContext.blocker}</dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>Return cue</dt>
+              <dd>{returnContext.returnCue}</dd>
+            </div>
+            {returnContext.supportResult ? (
+              <div>
+                <dt>Support result</dt>
+                <dd>{returnContext.supportResult}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+      ) : null}
       <dl className="start-mode-details">
         {startModeView.details.map((detail) => (
           <div key={detail.label}>
@@ -117,6 +149,16 @@ export function StartPanel({
             {t('start.startFocus')}
           </button>
         )}
+        {onRequestSmallerAction ? (
+          <button
+            className="secondary"
+            disabled={isSessionBusy || !hasStartableAction}
+            onClick={onRequestSmallerAction}
+            type="button"
+          >
+            Make smaller
+          </button>
+        ) : null}
       </div>
       <ul>
         {startModeView.checks.map((check) => (

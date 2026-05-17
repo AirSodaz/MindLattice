@@ -372,6 +372,18 @@ test('mock vault import and export use Markdown-shaped file DTOs', async () => {
   assert.equal(imported.nodes[0].title, 'Imported');
 });
 
+test('mock vault export supports a plain Markdown profile without MindLattice frontmatter', async () => {
+  const client = createMockCommandClient();
+  const workspace = await client.workspaceOpenDefault();
+
+  const exported = await client.vaultExport(workspace.id, 'plain_markdown');
+
+  assert.equal(exported.files.length, 2);
+  assert.equal(exported.files[0].content.startsWith('---'), false);
+  assert.match(exported.files[0].content, /^# Plan launch notes/m);
+  assert.doesNotMatch(exported.files[0].content, /mindlattice_id|kind:/);
+});
+
 test('mock command client lists persisted check-ins for review', async () => {
   const client = createMockCommandClient();
   const workspace = await client.workspaceOpenDefault();
@@ -462,6 +474,35 @@ test('Tauri command client exports Markdown files into a selected Vault folder',
     { path: 'C:/Vault/Next.md', content: '# Next' },
   ]);
   assert.deepEqual(result, { directory: 'C:/Vault', filesWritten: 2 });
+});
+
+test('Tauri folder export can write plain Markdown profile files', async () => {
+  const writtenFiles = [];
+  const client = createTauriCommandClient(
+    async (command, args) => {
+      assert.deepEqual({ command, args }, { command: 'vault_export', args: { workspaceId: 'workspace-1' } });
+      return {
+        files: [
+          {
+            filename: 'Plan.md',
+            content: '---\nmindlattice_id: task-1\nkind: task\n---\n\n# Plan\nKeep this visible.',
+          },
+        ],
+      };
+    },
+    {
+      joinPath: async (...parts) => parts.join('/'),
+      openDialog: async () => 'C:/Vault',
+      writeTextFile: async (path, content) => {
+        writtenFiles.push({ path, content });
+      },
+    },
+  );
+
+  const result = await client.vaultExportToFolder('workspace-1', 'plain_markdown');
+
+  assert.deepEqual(writtenFiles, [{ path: 'C:/Vault/Plan.md', content: '# Plan\nKeep this visible.' }]);
+  assert.deepEqual(result, { directory: 'C:/Vault', filesWritten: 1 });
 });
 
 async function configureMockLlm(client) {

@@ -21,7 +21,9 @@ import {
   deletePreferenceMemory,
   updatePreferenceMemory,
   acceptPreferenceMemoryProposal,
+  acceptAllPreferenceMemoryProposals,
   rejectPreferenceMemoryProposal,
+  rejectAllPreferenceMemoryProposals,
   draftStrategyExperiment,
   acceptStrategyExperimentProposal,
   rejectStrategyExperimentProposal,
@@ -33,6 +35,7 @@ import {
   saveOnboardingProfile,
   testLlmSettings,
   reviseActivePreview,
+  requestSmallerStartAction,
   submitAgentMessage,
 } from './workbenchController';
 
@@ -490,6 +493,32 @@ test('revising an active preview keeps it pending and leaves persisted nodes unc
   );
 });
 
+test('requesting a smaller Start Mode action returns an active preview before saving', async () => {
+  const baseClient = createMockCommandClient();
+  let revisionMessage = null;
+  const client = {
+    ...baseClient,
+    async agentTurnSubmit(workspaceId, selectedNodeId, message) {
+      revisionMessage = { workspaceId, selectedNodeId, message };
+      return baseClient.agentTurnSubmit(workspaceId, selectedNodeId, message);
+    },
+  };
+  const initialState = await markLlmConfigured(client, await initializeWorkbench(client));
+
+  const nextState = await requestSmallerStartAction(client, initialState);
+
+  assert.deepEqual(revisionMessage, {
+    workspaceId: 'default-workspace',
+    selectedNodeId: 'next-1',
+    message: 'Make the current Start Mode action smaller and keep it as a preview.',
+  });
+  assert.equal(nextState.workbench.activePreview.id, 'preview-1');
+  assert.deepEqual(
+    nextState.workbench.nodes.map((node) => node.id),
+    ['task-1', 'next-1'],
+  );
+});
+
 test('adopting a support template persists a support node and selects it', async () => {
   const client = createMockCommandClient();
   const initialState = await initializeWorkbench(client);
@@ -819,6 +848,53 @@ test('accepting or rejecting preference-memory proposals requires explicit revie
   assert.deepEqual(rejectedState.pendingMemoryProposals, []);
   assert.deepEqual(rejectedState.preferenceMemory, []);
   assert.equal(rejectedState.workbench.messages.at(-1).body, 'Preference memory proposal rejected.');
+});
+
+test('batch memory review accepts edited proposals and rejects the rest without silent saves', async () => {
+  const baseClient = createMockCommandClient();
+  let persistedMemoryCount = 0;
+  const client = {
+    ...baseClient,
+    async agentMemoryUpdate(workspaceId, memory) {
+      persistedMemoryCount += 1;
+      return baseClient.agentMemoryUpdate(workspaceId, memory);
+    },
+  };
+  const checkedInState = await createCheckIn(
+    client,
+    await initializeWorkbench(client),
+    'Five-minute start plans are easier to use.',
+  );
+  const withTwoProposals = {
+    ...checkedInState,
+    pendingMemoryProposals: [
+      ...checkedInState.pendingMemoryProposals,
+      {
+        id: 'memory-proposal-extra',
+        proposedMemoryText: 'Prefer a visible return cue.',
+        evidenceReference: 'check-in-2',
+      },
+    ],
+  };
+
+  const acceptedState = await acceptAllPreferenceMemoryProposals(client, withTwoProposals, {
+    'memory-proposal-check-in-1': 'Prefer five-minute starts.',
+    'memory-proposal-extra': 'Prefer visible return cues.',
+  });
+
+  assert.equal(persistedMemoryCount, 2);
+  assert.deepEqual(acceptedState.pendingMemoryProposals, []);
+  assert.deepEqual(
+    acceptedState.preferenceMemory.map((memory) => memory.proposedMemoryText),
+    ['Prefer five-minute starts.', 'Prefer visible return cues.'],
+  );
+  assert.equal(acceptedState.workbench.messages.at(-1).body, 'Preference memory review accepted: 2 item(s).');
+
+  const rejectedState = rejectAllPreferenceMemoryProposals(withTwoProposals);
+
+  assert.deepEqual(rejectedState.pendingMemoryProposals, []);
+  assert.deepEqual(rejectedState.preferenceMemory, []);
+  assert.equal(rejectedState.workbench.messages.at(-1).body, 'Preference memory review rejected: 2 item(s).');
 });
 
 test('updating preference memory persists visible edited text', async () => {

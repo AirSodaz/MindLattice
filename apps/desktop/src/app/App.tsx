@@ -9,6 +9,7 @@ import {
   createCheckIn,
   createCustomSupportNode,
   deletePreferenceMemory,
+  acceptAllPreferenceMemoryProposals,
   acceptPreferenceMemoryProposal,
   acceptStrategyExperimentProposal,
   acceptVaultImportPreview,
@@ -16,6 +17,7 @@ import {
   initializeWorkbench,
   moveNode,
   previewVaultImport,
+  rejectAllPreferenceMemoryProposals,
   rejectVaultImportPreview,
   rejectStrategyExperimentProposal,
   rejectPreferenceMemoryProposal,
@@ -25,6 +27,7 @@ import {
   testLlmSettings,
   saveOnboardingProfile,
   reviseActivePreview,
+  requestSmallerStartAction,
   saveSelectedNodeDetails,
   closeAttentionSession,
   startAttentionSession,
@@ -46,6 +49,8 @@ import { WorkbenchTaskPanels } from '../features/workbench/components/WorkbenchT
 import type { WorkbenchFlowNodeData } from '../features/workbench/components/WorkbenchFlow';
 import {
   buildInitialWorkbench,
+  buildPreviewDiff,
+  buildReturnContext,
   buildStartModeView,
   buildStartTimerState,
   enterStartMode,
@@ -55,6 +60,7 @@ import {
   percentFromReactFlowPosition,
   presentCommandError,
   reactFlowElementsFromWorkbench,
+  recommendSupportTemplates,
   resolveTheme,
   resolveWorkbenchShortcut,
   selectRightPaneMode,
@@ -71,6 +77,7 @@ import {
   type LlmProviderId,
 } from '../features/settings/llmProviderRegistry';
 import { createCommandClient } from '../shared/api/commandClient';
+import type { VaultExportProfile } from '../shared/api/commandClient';
 import { changeLanguagePreference, type LanguagePreference } from '../shared/i18n/i18n';
 import type {
   CommandExperimentContext,
@@ -226,6 +233,15 @@ export function App() {
     [workbench.nodes],
   );
   const startModeView = useMemo(() => buildStartModeView(workbench), [workbench]);
+  const previewDiff = useMemo(() => buildPreviewDiff(workbench.activePreview), [workbench.activePreview]);
+  const returnContext = useMemo(
+    () => buildReturnContext(workbench, screenState.strategyExperiments),
+    [screenState.strategyExperiments, workbench],
+  );
+  const supportRecommendations = useMemo(
+    () => recommendSupportTemplates(workbench, supportTemplates),
+    [supportTemplates, workbench],
+  );
   const hasStartableAction = workbench.nodes.some((node) => node.kind === 'next_action');
   const isStartModeFocused = workbench.viewMode === 'start';
   const startTimerState = useMemo(
@@ -277,16 +293,18 @@ export function App() {
     }
   }, [commandClient, isSessionBusy, screenState, workbench.nodes]);
 
-  const handleVaultExportToFolder = useCallback(async () => {
+  const handleVaultExportToFolder = useCallback(async (profile: VaultExportProfile = 'obsidian_readable') => {
     if (isVaultBusy || !screenState.workspaceId) {
       return;
     }
     setIsVaultBusy(true);
     try {
-      const result = await commandClient.vaultExportToFolder(screenState.workspaceId);
+      const result = await commandClient.vaultExportToFolder(screenState.workspaceId, profile);
       setVaultExportSummary(
         result
-          ? `${result.filesWritten} Markdown file${result.filesWritten === 1 ? '' : 's'} exported to ${result.directory}.`
+          ? `${result.filesWritten} ${profile === 'plain_markdown' ? 'plain' : 'Obsidian-readable'} Markdown file${
+              result.filesWritten === 1 ? '' : 's'
+            } exported to ${result.directory}.`
           : 'Export cancelled.',
       );
       setScreenState((current) => ({ ...current, lastError: null }));
@@ -656,6 +674,7 @@ export function App() {
           preview={
             <PreviewReviewPanel
               activePreview={workbench.activePreview}
+              previewDiff={previewDiff}
               onAccept={async () => {
                 setScreenState(await acceptActivePreview(commandClient, screenState));
                 setRequestedPane(null);
@@ -770,6 +789,21 @@ export function App() {
                   workbench: enterStartMode(current.workbench),
                 }));
               }}
+              onRequestSmallerAction={async () => {
+                if (isAgentBusy || !isLlmConfigured) {
+                  return;
+                }
+                setIsAgentBusy(true);
+                try {
+                  setScreenState({ ...(await requestSmallerStartAction(commandClient, screenState)), lastError: null });
+                  setRequestedPane(null);
+                  setActiveTaskPanel(null);
+                } catch (error) {
+                  setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
+                } finally {
+                  setIsAgentBusy(false);
+                }
+              }}
               onSaveCheckIn={async () => {
                 setIsCheckInSaving(true);
                 try {
@@ -782,6 +816,7 @@ export function App() {
               onSessionCompletionNoteChange={setSessionCompletionNote}
               onStartSession={handleStartAttentionSession}
               sessionCompletionNote={sessionCompletionNote}
+              returnContext={returnContext}
               startModeView={startModeView}
               startTimerState={startTimerState}
               workspaceReady={Boolean(screenState.workspaceId)}
@@ -807,6 +842,14 @@ export function App() {
               isSupportSaving={isSupportSaving}
               isVaultBusy={isVaultBusy}
               memoryDrafts={memoryDrafts}
+              onAcceptAllMemoryProposals={async (drafts) => {
+                setIsMemorySaving(true);
+                try {
+                  setScreenState(await acceptAllPreferenceMemoryProposals(commandClient, screenState, drafts));
+                } finally {
+                  setIsMemorySaving(false);
+                }
+              }}
               onAcceptMemoryProposal={async (memoryId, text) => {
                 setIsMemorySaving(true);
                 try {
@@ -901,6 +944,9 @@ export function App() {
               onPreviewVaultImport={(files) => {
                 setScreenState((current) => previewVaultImport(current, files));
               }}
+              onRejectAllMemoryProposals={() => {
+                setScreenState((current) => rejectAllPreferenceMemoryProposals(current));
+              }}
               onRejectMemoryProposal={(memoryId) => {
                 setScreenState((current) => rejectPreferenceMemoryProposal(current, memoryId));
               }}
@@ -939,15 +985,17 @@ export function App() {
               onSupportDraftChange={(supportId, draft) => {
                 setSupportDrafts((current) => ({ ...current, [supportId]: draft }));
               }}
-              onVaultExportPreview={async () => {
+              onVaultExportPreview={async (profile) => {
                 if (isVaultBusy || !screenState.workspaceId) {
                   return;
                 }
                 setIsVaultBusy(true);
                 try {
-                  const exported = await commandClient.vaultExport(screenState.workspaceId);
+                  const exported = await commandClient.vaultExport(screenState.workspaceId, profile);
                   setVaultExportSummary(
-                    `${exported.files.length} Markdown file${exported.files.length === 1 ? '' : 's'} ready to save manually.`,
+                    `${exported.files.length} ${profile === 'plain_markdown' ? 'plain' : 'Obsidian-readable'} Markdown file${
+                      exported.files.length === 1 ? '' : 's'
+                    } ready to save manually.`,
                   );
                   setScreenState((current) => ({ ...current, lastError: null }));
                 } catch (error) {
@@ -1077,6 +1125,7 @@ export function App() {
                 />
               }
               supportDrafts={supportDrafts}
+              supportRecommendations={supportRecommendations}
               supportTemplates={supportTemplates}
               vaultExportSummary={vaultExportSummary}
               vaultImportContent={vaultImportContent}
@@ -1139,9 +1188,23 @@ export function App() {
                 setIsCheckInSaving(false);
               }
             }}
+            onRequestSmallerAction={async () => {
+              if (isAgentBusy || !isLlmConfigured) {
+                return;
+              }
+              setIsAgentBusy(true);
+              try {
+                setScreenState({ ...(await requestSmallerStartAction(commandClient, screenState)), lastError: null });
+              } catch (error) {
+                setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
+              } finally {
+                setIsAgentBusy(false);
+              }
+            }}
             onSessionCompletionNoteChange={setSessionCompletionNote}
             onStartSession={handleStartAttentionSession}
             sessionCompletionNote={sessionCompletionNote}
+            returnContext={returnContext}
             startModeView={startModeView}
             startTimerState={startTimerState}
             workspaceReady={Boolean(screenState.workspaceId)}

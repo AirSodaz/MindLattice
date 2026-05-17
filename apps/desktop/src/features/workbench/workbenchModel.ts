@@ -1,4 +1,8 @@
-import type { CommandNodeKind } from '../../shared/api/generated/commandDtos';
+import type {
+  CommandNodeKind,
+  CommandStrategyExperiment,
+  CommandSupportTemplate,
+} from '../../shared/api/generated/commandDtos';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
@@ -142,6 +146,38 @@ export type StartTimerState = {
 export type PresentedCommandError = {
   message: string;
   detail: string;
+};
+
+export type PreviewDiffRowKind = 'node' | 'edge' | 'memory' | 'check_in' | 'strategy_experiment';
+
+export type PreviewDiffRow = {
+  kind: PreviewDiffRowKind;
+  label: string;
+  detail: string;
+};
+
+export type PreviewDiff = {
+  counts: {
+    nodesToAdd: number;
+    edgesToAdd: number;
+    memoryToReview: number;
+    checkInsToSave: number;
+    strategyExperimentsToSave: number;
+  };
+  rows: PreviewDiffRow[];
+  unsupportedMutationsNotice: string;
+};
+
+export type ReturnContext = {
+  nextAction: string;
+  blocker: string | null;
+  returnCue: string;
+  supportResult: string | null;
+};
+
+export type SupportTemplateRecommendation = {
+  template: CommandSupportTemplate;
+  reason: string;
 };
 
 export type RightPaneSelectionInput = {
@@ -433,6 +469,99 @@ export function previewWriteSummary(preview: AgentPreviewModel | null): string {
   }, and ${strategyExperimentCount} strategy experiment${strategyExperimentCount === 1 ? '' : 's'}.`;
 }
 
+export function buildPreviewDiff(preview: AgentPreviewModel | null): PreviewDiff {
+  const proposedNodes = preview?.proposedNodes ?? [];
+  const proposedEdges = preview?.proposedEdges ?? [];
+  const proposedMemory = preview?.proposedMemory ?? [];
+  const proposedCheckIns = preview?.proposedCheckIns ?? [];
+  const proposedStrategyExperiments = preview?.proposedStrategyExperiments ?? [];
+
+  return {
+    counts: {
+      nodesToAdd: proposedNodes.length,
+      edgesToAdd: proposedEdges.length,
+      memoryToReview: proposedMemory.length,
+      checkInsToSave: proposedCheckIns.length,
+      strategyExperimentsToSave: proposedStrategyExperiments.length,
+    },
+    rows: [
+      ...proposedNodes.map((node): PreviewDiffRow => ({
+        kind: 'node',
+        label: `Add ${humanizeIdentifier(node.kind)}`,
+        detail: node.title,
+      })),
+      ...proposedEdges.map((edge): PreviewDiffRow => ({
+        kind: 'edge',
+        label: 'Add relationship',
+        detail: `${edge.sourceId} -> ${edge.targetId} (${humanizeIdentifier(edge.kind)})`,
+      })),
+      ...proposedMemory.map((memory): PreviewDiffRow => ({
+        kind: 'memory',
+        label: 'Review preference memory',
+        detail: stringField(memory, 'proposedMemoryText') ?? 'Preference memory proposal',
+      })),
+      ...proposedCheckIns.map((checkIn): PreviewDiffRow => ({
+        kind: 'check_in',
+        label: 'Save check-in',
+        detail: stringField(checkIn, 'body') ?? 'Check-in proposal',
+      })),
+      ...proposedStrategyExperiments.map((experiment): PreviewDiffRow => ({
+        kind: 'strategy_experiment',
+        label: 'Save strategy experiment',
+        detail: strategyExperimentSummary(experiment),
+      })),
+    ],
+    unsupportedMutationsNotice: 'No update or delete operations are included in this preview.',
+  };
+}
+
+export function buildReturnContext(
+  model: WorkbenchModel,
+  strategyExperiments: CommandStrategyExperiment[],
+): ReturnContext | null {
+  const nextActionNode =
+    model.nodes.find((node) => node.title === model.startPlan.nextAction) ??
+    model.nodes.find((node) => node.kind === 'next_action');
+  if (!nextActionNode) {
+    return null;
+  }
+
+  const blocker = model.nodes.find((node) => node.kind === 'blocker')?.title ?? null;
+  const returnCue =
+    model.startPlan.checks.find((check) => check.toLowerCase().startsWith('return to:')) ??
+    `Return to: ${nextActionNode.title}`;
+  const latestExperiment = strategyExperiments.at(-1);
+
+  return {
+    nextAction: nextActionNode.title,
+    blocker,
+    returnCue,
+    supportResult: latestExperiment ? strategyExperimentResultSummary(latestExperiment) : null,
+  };
+}
+
+export function recommendSupportTemplates(
+  model: WorkbenchModel,
+  templates: CommandSupportTemplate[],
+): SupportTemplateRecommendation[] {
+  const contextText = [
+    model.startPlan.nextAction,
+    ...model.startPlan.checks,
+    ...model.nodes.filter((node) => node.kind === 'blocker').map((node) => node.title),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return [...templates]
+    .map((template) => ({
+      template,
+      reason: supportRecommendationReason(template, contextText),
+      score: supportRecommendationScore(template, contextText),
+    }))
+    .sort((left, right) => right.score - left.score || left.template.title.localeCompare(right.template.title))
+    .map(({ template, reason }) => ({ template, reason }));
+}
+
 export function reactFlowElementsFromWorkbench(
   model: WorkbenchModel,
   canvasSize: ReactFlowCanvasSize,
@@ -511,6 +640,93 @@ function clampPercent(value: number): number {
     return 50;
   }
   return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function humanizeIdentifier(value: string): string {
+  return value.replaceAll('_', ' ');
+}
+
+function stringField(value: unknown, field: string): string | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const fieldValue = (value as Record<string, unknown>)[field];
+  return typeof fieldValue === 'string' ? fieldValue : null;
+}
+
+function strategyExperimentSummary(value: unknown): string {
+  if (!value || typeof value !== 'object') {
+    return 'Strategy experiment proposal';
+  }
+  const record = value as Record<string, unknown>;
+  const decision = typeof record.nextDecision === 'string' ? record.nextDecision : 'review';
+  const supportLabel =
+    (typeof record.supportTemplateId === 'string' && record.supportTemplateId) ||
+    (typeof record.customSupportTitle === 'string' && record.customSupportTitle) ||
+    'custom support';
+  return `${decision} ${supportLabel}`;
+}
+
+function strategyExperimentResultSummary(experiment: CommandStrategyExperiment): string {
+  const supportLabel = experiment.supportTemplateId ?? experiment.customSupportTitle ?? 'custom support';
+  const helped = [
+    experiment.helpedStart ? 'start' : null,
+    experiment.helpedContinue ? 'continue' : null,
+    experiment.helpedReturn ? 'return' : null,
+    experiment.helpedClarifyNextAction ? 'clarify next action' : null,
+  ].filter((item): item is string => item !== null);
+  const helpedSummary = helped.length > 0 ? `helped ${joinWithAnd(helped)}` : 'no help recorded';
+  const obstacle = experiment.obstacleNote ? ` ${experiment.obstacleNote}` : '';
+  return `${experiment.nextDecision} ${supportLabel}: ${helpedSummary}.${obstacle}`;
+}
+
+function supportRecommendationReason(template: CommandSupportTemplate, contextText: string): string {
+  const haystack = `${template.title} ${template.steps.join(' ')} ${template.category}`.toLowerCase();
+  if (
+    template.category === 'external_memory' ||
+    (/return|restart|interruption|losing|context/.test(contextText) &&
+      /return|restart|cue|external_memory/.test(haystack))
+  ) {
+    return 'Matches the current return cue or context-loss blocker, so it keeps the restart point visible.';
+  }
+  if (
+    template.category === 'task_structure' ||
+    (/small|start|minimum|checklist|step/.test(contextText) && /task_structure|checklist|step|small/.test(haystack))
+  ) {
+    return 'Matches the current start friction, so it keeps the first action small and visible.';
+  }
+  if (
+    template.category === 'sensory_environment' ||
+    (/distract|noise|clutter|workspace/.test(contextText) && /sensory_environment|workspace|noise|clutter/.test(haystack))
+  ) {
+    return 'Matches the current environment friction, so it reduces what has to compete for attention.';
+  }
+  return 'Matches the current task context, so it gives one low-risk support to try.';
+}
+
+function supportRecommendationScore(template: CommandSupportTemplate, contextText: string): number {
+  const haystack = `${template.title} ${template.steps.join(' ')} ${template.category}`.toLowerCase();
+  let score = 0;
+  if (/return|restart|interruption|losing|context/.test(contextText) && /return|restart|cue|external_memory/.test(haystack)) {
+    score += 4;
+  }
+  if (/small|start|minimum|checklist|step/.test(contextText) && /task_structure|checklist|step|small/.test(haystack)) {
+    score += 3;
+  }
+  if (/distract|noise|clutter|workspace/.test(contextText) && /sensory_environment|workspace|noise|clutter/.test(haystack)) {
+    score += 2;
+  }
+  return score;
+}
+
+function joinWithAnd(items: string[]): string {
+  if (items.length <= 1) {
+    return items[0] ?? '';
+  }
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
 }
 
 export function applyAgentPreview(model: WorkbenchModel): WorkbenchModel {

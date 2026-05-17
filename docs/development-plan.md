@@ -269,6 +269,30 @@ Acceptance criteria:
 - Build and tests pass.
 - Windows packaged app opens and preserves local data.
 
+## P1 Differentiation Enhancements
+
+Purpose:
+
+Strengthen the MVP execution loop without expanding MindLattice into calendar scheduling, clinical tracking, mobile reminders, or team project management.
+
+Deliverables:
+
+- Preview review shows a concrete write diff for proposed graph nodes, graph edges, support records, check-ins, strategy experiments, and preference-memory proposals.
+- Return context summarizes the current next action, current blocker, return cue, and most recent support experiment result.
+- Support-template recommendations include a one-sentence reason without long coaching or medical claims.
+- Start Mode can request a smaller next action through the conversational execution agent and keep the result as an agent preview.
+- Preference-memory review supports centralized proposal review, per-item editing, and batch rejection or acceptance of reviewed proposals.
+- Vault export offers Obsidian-readable and plain Markdown snapshot profiles.
+
+Acceptance criteria:
+
+- Preview review makes clear what acceptance will save and does not imply unsupported update or delete operations.
+- Return context appears before lower-priority Start Mode history when a next action exists.
+- Support recommendation copy stays one sentence and avoids diagnosis, treatment, symptom, score, streak, and clinical language.
+- Requesting a smaller Start Mode action produces an agent preview before persistence.
+- Batch memory review never silently saves raw chat; edited proposal text is used when accepted.
+- Plain Markdown export omits MindLattice frontmatter while Obsidian-readable export preserves metadata.
+
 ## Testing Strategy
 
 Rust:

@@ -7,8 +7,9 @@ import type {
   CommandStrategyExperiment,
   CommandSupportTemplate,
   CommandVaultFile,
+  VaultExportProfile,
 } from '../../../shared/api/commandClient';
-import type { WorkbenchTaskPanel, WorkbenchNode } from '../workbenchModel';
+import type { SupportTemplateRecommendation, WorkbenchTaskPanel, WorkbenchNode } from '../workbenchModel';
 
 export type WorkbenchTaskPanelsProps = {
   activePanel: WorkbenchTaskPanel;
@@ -40,11 +41,13 @@ export type WorkbenchTaskPanelsProps = {
   preferenceMemory: CommandMemory[];
   settingsPanel: ReactNode;
   supportDrafts: Record<string, { title: string; body: string }>;
+  supportRecommendations: SupportTemplateRecommendation[];
   supportTemplates: CommandSupportTemplate[];
   vaultExportSummary: string;
   vaultImportContent: string;
   vaultImportFilename: string;
   workspaceReady: boolean;
+  onAcceptAllMemoryProposals: (drafts: Record<string, string>) => void;
   onAcceptMemoryProposal: (memoryId: string, text: string) => void;
   onAcceptStrategyExperiment: (experimentId: string) => void;
   onAcceptVaultImport: () => void;
@@ -61,6 +64,7 @@ export type WorkbenchTaskPanelsProps = {
   onPendingMemoryDraftChange: (memoryId: string, value: string) => void;
   onPreviewVaultImport: (files: CommandVaultFile[]) => void;
   onPreviewStrategyExperiment: () => void;
+  onRejectAllMemoryProposals: () => void;
   onRejectMemoryProposal: (memoryId: string) => void;
   onRejectStrategyExperiment: (experimentId: string) => void;
   onRejectVaultImport: () => void;
@@ -68,8 +72,8 @@ export type WorkbenchTaskPanelsProps = {
   onSaveMemory: (memoryId: string, text: string) => void;
   onSaveSupport: (supportId: string, title: string, body: string) => void;
   onSupportDraftChange: (supportId: string, draft: { title: string; body: string }) => void;
-  onVaultExportPreview: () => void;
-  onVaultExportToFolder: () => void;
+  onVaultExportPreview: (profile: VaultExportProfile) => void;
+  onVaultExportToFolder: (profile: VaultExportProfile) => void;
   onVaultImportContentChange: (value: string) => void;
   onVaultImportFilenameChange: (value: string) => void;
   onVaultPickImportFolder: () => void;
@@ -131,6 +135,12 @@ function SupportPanel(props: WorkbenchTaskPanelsProps) {
               <h3>{template.title}</h3>
             </div>
             <p>{template.steps[0]}</p>
+            {props.supportRecommendations.find((recommendation) => recommendation.template.id === template.id) ? (
+              <p className="support-reason">
+                <span>Recommended because</span>
+                {props.supportRecommendations.find((recommendation) => recommendation.template.id === template.id)?.reason}
+              </p>
+            ) : null}
             <button
               disabled={props.isSupportAdopting || !props.workspaceReady}
               onClick={() => props.onAdoptSupportTemplate(template.id)}
@@ -358,6 +368,14 @@ function MemoryPanel(props: WorkbenchTaskPanelsProps) {
       </div>
       {props.pendingMemoryProposals.length > 0 ? (
         <div className="memory-list" aria-label="Pending preference memory proposals">
+          <div className="memory-batch-actions action-row">
+            <button disabled={props.isMemorySaving} onClick={() => props.onAcceptAllMemoryProposals(props.pendingMemoryDrafts)} type="button">
+              Accept all reviewed
+            </button>
+            <button className="secondary" disabled={props.isMemorySaving} onClick={props.onRejectAllMemoryProposals} type="button">
+              Reject all
+            </button>
+          </div>
           {props.pendingMemoryProposals.map((memory) => {
             const draft = props.pendingMemoryDrafts[memory.id] ?? memory.proposedMemoryText;
             return (
@@ -456,11 +474,14 @@ function VaultPanel(props: WorkbenchTaskPanelsProps) {
         <h2>Manual Markdown snapshot</h2>
       </div>
       <div className="action-row">
-        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={props.onVaultExportPreview} type="button">
-          Preview export
+        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportPreview('obsidian_readable')} type="button">
+          Preview Obsidian export
         </button>
-        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={props.onVaultExportToFolder} type="button">
-          Export folder
+        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportToFolder('obsidian_readable')} type="button">
+          Export Obsidian folder
+        </button>
+        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportToFolder('plain_markdown')} type="button">
+          Export plain folder
         </button>
         <button className="secondary" disabled={props.isVaultBusy || !props.workspaceReady} onClick={props.onVaultPickImportFolder} type="button">
           Import folder

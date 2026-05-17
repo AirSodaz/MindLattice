@@ -120,6 +120,8 @@ async function runSmoke(protocol) {
   await clickElement(protocol, `document.querySelector('[aria-label="Send message"]')`);
   await waitForText(protocol, 'Preview drafted. Review it, revise it, or accept it before anything is saved.');
   await waitForText(protocol, 'Accepting will add 1 draft node');
+  await waitForText(protocol, '1 nodes');
+  await waitForText(protocol, 'No update or delete operations are included in this preview.');
 
   await fillByAriaLabel(protocol, 'Message the execution agent', 'Make the next action smaller.');
   await clickElement(protocol, `document.querySelector('[aria-label="Send message"]')`);
@@ -142,6 +144,7 @@ async function runSmoke(protocol) {
 
   await clickButton(protocol, 'Back to canvas');
   await clickButton(protocol, 'Support');
+  await waitForText(protocol, 'Recommended because');
   await clickTemplateAction(protocol, 'Visible short checklist', 'Adopt');
   await waitForText(protocol, 'Support adopted: Visible short checklist.');
   await selectByLabel(protocol, 'Support tried', 'Visible short checklist');
@@ -153,16 +156,26 @@ async function runSmoke(protocol) {
 
   await clickButton(protocol, 'Back to canvas');
   await clickButton(protocol, 'Start');
+  await waitForText(protocol, 'Return context');
+  await waitForText(protocol, 'Make smaller');
   await fillByPlaceholder(protocol, 'Did you start, where did it get stuck, or what should stay visible next?', 'Five-minute starts helped me return.');
   await clickButton(protocol, 'Save check-in');
   await waitForText(protocol, 'Check-in saved: Five-minute starts helped me return.');
   await clickButton(protocol, 'Back to canvas');
   await clickButton(protocol, 'Memory');
-  await clickButton(protocol, 'Accept memory');
-  await waitForText(protocol, 'Preference memory accepted: Five-minute starts helped me return.');
+  await waitForText(protocol, 'Accept all reviewed');
+  await waitForText(protocol, 'Reject all');
+  await clickButton(protocol, 'Accept all reviewed');
+  await waitForText(protocol, 'Preference memory review accepted: 1 item(s).');
 
   await clickButton(protocol, 'Back to canvas');
   await clickButton(protocol, 'Vault');
+  await waitForText(protocol, 'Preview Obsidian export');
+  await waitForText(protocol, 'Export plain folder');
+  await clickButton(protocol, 'Preview Obsidian export');
+  await waitForText(protocol, 'Obsidian-readable Markdown');
+  await clickButton(protocol, 'Export plain folder');
+  await waitForText(protocol, 'plain Markdown file');
   await fillByLabel(protocol, 'Markdown content', '# Imported browser smoke note\\nKeep this beside the map.');
   await clickButton(protocol, 'Preview import');
   await waitForText(protocol, 'Pending import');

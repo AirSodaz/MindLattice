@@ -34,6 +34,8 @@ export type CommandVaultFolderExport = {
   filesWritten: number;
 };
 
+export type VaultExportProfile = 'obsidian_readable' | 'plain_markdown';
+
 export type {
   CommandAgentResponse,
   CommandAttentionSession,
@@ -107,8 +109,8 @@ export type CommandClient = {
   agentMemoryList: (workspaceId: string) => Promise<CommandMemory[]>;
   agentMemoryUpdate: (workspaceId: string, memory: CommandMemory) => Promise<CommandMemory>;
   agentMemoryDelete: (workspaceId: string, memoryId: string) => Promise<void>;
-  vaultExport: (workspaceId: string) => Promise<CommandVaultExport>;
-  vaultExportToFolder: (workspaceId: string) => Promise<CommandVaultFolderExport | null>;
+  vaultExport: (workspaceId: string, profile?: VaultExportProfile) => Promise<CommandVaultExport>;
+  vaultExportToFolder: (workspaceId: string, profile?: VaultExportProfile) => Promise<CommandVaultFolderExport | null>;
   vaultPickImportFolder: () => Promise<CommandVaultFile[]>;
   vaultImport: (workspaceId: string, files: CommandVaultFile[]) => Promise<CommandVaultImport>;
   checkInCreate: (workspaceId: string, nodeId: string | null, body: string) => Promise<CommandCheckIn>;
@@ -209,8 +211,11 @@ export function createTauriCommandClient(
       invoke<CommandMemory>('agent_memory_update', { workspaceId, memory }),
     agentMemoryDelete: (workspaceId, memoryId) =>
       invoke<void>('agent_memory_delete', { workspaceId, memoryId }),
-    vaultExport: (workspaceId) => invoke<CommandVaultExport>('vault_export', { workspaceId }),
-    vaultExportToFolder: async (workspaceId) => {
+    vaultExport: async (workspaceId, profile = 'obsidian_readable') => {
+      const exported = await invoke<CommandVaultExport>('vault_export', { workspaceId });
+      return applyVaultExportProfile(exported, profile);
+    },
+    vaultExportToFolder: async (workspaceId, profile = 'obsidian_readable') => {
       if (!nativeVaultTransport.writeTextFile || !nativeVaultTransport.joinPath) {
         throw new Error('Native Vault export transport is unavailable.');
       }
@@ -223,7 +228,7 @@ export function createTauriCommandClient(
       if (!directory) {
         return null;
       }
-      const exported = await invoke<CommandVaultExport>('vault_export', { workspaceId });
+      const exported = applyVaultExportProfile(await invoke<CommandVaultExport>('vault_export', { workspaceId }), profile);
       await Promise.all(
         exported.files.map(async (file) => {
           const path = await nativeVaultTransport.joinPath!(directory, file.filename);
@@ -562,16 +567,17 @@ export function createMockCommandClient(): CommandClient {
     async agentMemoryDelete(_workspaceId, memoryId) {
       state.memory = state.memory.filter((memory) => memory.id !== memoryId);
     },
-    async vaultExport(workspaceId) {
-      return {
+    async vaultExport(workspaceId, profile = 'obsidian_readable') {
+      const exported = {
         files: state.nodes.map((node) => ({
           filename: `${node.title}.md`,
           content: `---\nmindlattice_id: ${node.id}\nkind: ${node.kind}\n---\n\n# ${node.title}\n${node.body ?? ''}`.trimEnd(),
         })),
       };
+      return applyVaultExportProfile(exported, profile);
     },
-    async vaultExportToFolder(workspaceId) {
-      const exported = await this.vaultExport(workspaceId);
+    async vaultExportToFolder(workspaceId, profile = 'obsidian_readable') {
+      const exported = await this.vaultExport(workspaceId, profile);
       return { directory: 'mock-vault', filesWritten: exported.files.length };
     },
     async vaultPickImportFolder() {
@@ -827,4 +833,33 @@ function browserRuntime(): CommandClientRuntime {
       return invoke(command, args);
     },
   };
+}
+
+function applyVaultExportProfile(
+  exported: CommandVaultExport,
+  profile: VaultExportProfile,
+): CommandVaultExport {
+  if (profile === 'obsidian_readable') {
+    return exported;
+  }
+
+  return {
+    files: exported.files.map((file) => ({
+      ...file,
+      content: stripYamlFrontmatter(file.content).trimStart(),
+    })),
+  };
+}
+
+function stripYamlFrontmatter(content: string): string {
+  const normalized = content.replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) {
+    return content;
+  }
+  const endIndex = normalized.indexOf('\n---', 4);
+  if (endIndex < 0) {
+    return content;
+  }
+  const afterFence = normalized.slice(endIndex + '\n---'.length);
+  return afterFence.startsWith('\n') ? afterFence.slice(1) : afterFence;
 }
