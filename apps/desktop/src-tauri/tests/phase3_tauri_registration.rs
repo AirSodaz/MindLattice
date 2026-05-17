@@ -3,8 +3,8 @@ use mindlattice_core::domain::NodeKind;
 use mindlattice_desktop_commands::tauri_api::{
     agent_preview_accept, agent_preview_get, agent_preview_revise, agent_turn_submit,
     attention_session_close, check_in_create, check_in_list, map_get, registered_command_names,
-    settings_test_llm, start_plan_get, vault_export, vault_import, workspace_open_default,
-    CommandVaultFileDto, SharedCommandRuntime,
+    settings_get_app, settings_test_llm, settings_update_interface, start_plan_get, vault_export,
+    vault_import, workspace_open_default, CommandVaultFileDto, SharedCommandRuntime,
 };
 
 #[test]
@@ -138,7 +138,9 @@ fn tauri_registration_covers_implemented_command_boundary() {
         "vault_export",
         "check_in_create",
         "check_in_list",
+        "settings_get_app",
         "settings_test_llm",
+        "settings_update_interface",
         "settings_update_llm",
     ] {
         assert!(
@@ -164,6 +166,7 @@ fn rust_command_dto_schema_generates_frontend_typescript_artifact() {
     assert!(generated.contains("export type CommandPreview"));
     assert!(generated.contains("proposedStrategyExperiments: CommandStrategyExperiment[]"));
     assert!(generated.contains("export type CommandVaultImport"));
+    assert!(generated.contains("export type CommandAppSettings"));
     assert!(generated.contains("export type CommandLlmTestResult"));
     assert!(
         !generated.contains("features/workbench"),
@@ -173,6 +176,23 @@ fn rust_command_dto_schema_generates_frontend_typescript_artifact() {
         command_client.contains("from './generated/commandDtos'"),
         "commandClient.ts should consume generated DTO types instead of duplicating them"
     );
+}
+
+#[test]
+fn tauri_wrappers_return_frontend_aligned_app_settings_dtos() {
+    let runtime = SharedCommandRuntime::in_memory().expect("runtime opens");
+
+    let defaults = settings_get_app(runtime.clone()).expect("default app settings returned");
+    assert_eq!(defaults.llm_settings, None);
+    assert_eq!(defaults.theme_preference, "system");
+    assert_eq!(defaults.language_preference, "system");
+    assert_eq!(defaults.interface_preferences_saved, false);
+
+    let saved = settings_update_interface(runtime.clone(), "dark".to_string(), "zh-CN".to_string())
+        .expect("interface settings save");
+    assert_eq!(saved.theme_preference, "dark");
+    assert_eq!(saved.language_preference, "zh-CN");
+    assert_eq!(saved.interface_preferences_saved, true);
 }
 
 #[test]

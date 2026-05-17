@@ -3,6 +3,7 @@ import {
   mapSnapshotToWorkbenchEdges,
   mapSnapshotToWorkbenchNodes,
   type CommandClient,
+  type CommandAppSettings,
   type CommandAttentionSession,
   type CommandCheckIn,
   type CommandContextProfile,
@@ -21,6 +22,7 @@ import type { PresentedCommandError } from './workbenchModel';
 
 export type WorkbenchScreenState = {
   workspaceId: string;
+  appSettings: CommandAppSettings;
   contextProfile: CommandContextProfile;
   supportTemplates: CommandSupportTemplate[];
   checkIns: CommandCheckIn[];
@@ -44,12 +46,13 @@ export type VaultImportPreview = {
 
 export async function initializeWorkbench(client: CommandClient): Promise<WorkbenchScreenState> {
   const workspace = await client.workspaceOpenDefault();
-  const [snapshot, supportTemplates, preferenceMemory, checkIns, contextProfile] = await Promise.all([
+  const [snapshot, supportTemplates, preferenceMemory, checkIns, contextProfile, appSettings] = await Promise.all([
     client.mapGet(workspace.id),
     client.supportTemplatesList(),
     client.agentMemoryList(workspace.id),
     client.checkInList(workspace.id),
     client.contextProfileGet(workspace.id),
+    client.settingsGetApp(),
   ]);
   const nodes = mapSnapshotToWorkbenchNodes(snapshot);
   const edges = mapSnapshotToWorkbenchEdges(snapshot);
@@ -58,6 +61,7 @@ export async function initializeWorkbench(client: CommandClient): Promise<Workbe
 
   return {
     workspaceId: workspace.id,
+    appSettings,
     contextProfile,
     supportTemplates,
     checkIns,
@@ -1075,7 +1079,7 @@ export async function saveLlmSettings(
     };
   }
 
-  await client.settingsUpdateLlm(
+  const savedLlmSettings = await client.settingsUpdateLlm(
     settings.providerId,
     settings.apiMode,
     settings.baseUrl,
@@ -1090,6 +1094,10 @@ export async function saveLlmSettings(
 
   return {
     ...state,
+    appSettings: {
+      ...state.appSettings,
+      llmSettings: savedLlmSettings,
+    },
     contextProfile,
     providerTestResult: null,
     providerTestedSettings: null,

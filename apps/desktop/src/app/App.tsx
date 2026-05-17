@@ -134,6 +134,12 @@ export function App() {
   const [activeTaskPanel, setActiveTaskPanel] = useState<WorkbenchTaskPanel>(null);
   const [screenState, setScreenState] = useState<WorkbenchScreenState>(() => ({
     workspaceId: '',
+    appSettings: {
+      llmSettings: null,
+      themePreference: 'system',
+      languagePreference: initialLanguagePreference(),
+      interfacePreferencesSaved: false,
+    },
     contextProfile: {
       id: 'context-profile-loading',
       workspaceId: '',
@@ -348,6 +354,16 @@ export function App() {
       .then((nextState) => {
         if (isCurrent) {
           setScreenState(nextState);
+          setThemePreference(nextState.appSettings.themePreference);
+          setLanguagePreference(resolveInitialHydratedLanguagePreference(nextState.appSettings));
+          if (nextState.appSettings.llmSettings) {
+            setLlmProviderId(nextState.appSettings.llmSettings.providerId as LlmProviderId);
+            setLlmApiMode(nextState.appSettings.llmSettings.apiMode as LlmApiMode);
+            setLlmBaseUrl(nextState.appSettings.llmSettings.baseUrl);
+            setLlmApiKey(nextState.appSettings.llmSettings.apiKey);
+            setLlmModel(nextState.appSettings.llmSettings.model);
+            setLlmTimeoutSeconds(nextState.appSettings.llmSettings.timeoutSeconds);
+          }
         }
       })
       .catch((error) => {
@@ -535,12 +551,34 @@ export function App() {
     },
     [clearProviderTestResult],
   );
-  const handleLanguagePreferenceChange = useCallback((value: LanguagePreference) => {
-    setLanguagePreference(value);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('mindlattice.languagePreference', value);
-    }
-  }, []);
+  const saveInterfacePreferences = useCallback(
+    async (theme: ThemePreference, language: LanguagePreference) => {
+      try {
+        const appSettings = await commandClient.settingsUpdateInterface(theme, language);
+        setScreenState((current) => ({ ...current, appSettings, lastError: null }));
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('mindlattice.languagePreference');
+        }
+      } catch (error) {
+        setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
+      }
+    },
+    [commandClient],
+  );
+  const handleLanguagePreferenceChange = useCallback(
+    (value: LanguagePreference) => {
+      setLanguagePreference(value);
+      void saveInterfacePreferences(themePreference, value);
+    },
+    [saveInterfacePreferences, themePreference],
+  );
+  const handleThemePreferenceChange = useCallback(
+    (value: ThemePreference) => {
+      setThemePreference(value);
+      void saveInterfacePreferences(value, languagePreference);
+    },
+    [languagePreference, saveInterfacePreferences],
+  );
 
   return (
     <main className={`app-shell ${isStartModeFocused ? 'is-start-mode' : ''}`} data-theme={resolvedTheme}>
@@ -1114,7 +1152,7 @@ export function App() {
                       setIsLlmTesting(false);
                     }
                   }}
-                  onThemePreferenceChange={setThemePreference}
+                  onThemePreferenceChange={handleThemePreferenceChange}
                   profile={screenState.contextProfile}
                   providerTestMessage={screenState.providerTestResult?.message ?? null}
                   providerTestStatus={screenState.providerTestResult ? 'ok' : 'idle'}
@@ -1223,4 +1261,13 @@ function initialLanguagePreference(): LanguagePreference {
   return savedPreference === 'en' || savedPreference === 'zh-CN' || savedPreference === 'system'
     ? savedPreference
     : 'system';
+}
+
+function resolveInitialHydratedLanguagePreference(
+  appSettings: WorkbenchScreenState['appSettings'],
+): LanguagePreference {
+  if (appSettings.interfacePreferencesSaved) {
+    return appSettings.languagePreference;
+  }
+  return initialLanguagePreference();
 }

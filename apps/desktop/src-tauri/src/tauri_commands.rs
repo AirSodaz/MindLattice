@@ -1,10 +1,10 @@
 use crate::tauri_api::{
-    self, CommandAgentResponseDto, CommandAttentionSessionDto, CommandCheckInDto,
-    CommandContextProfileDto, CommandEdgeDto, CommandErrorDto, CommandLlmSettingsDto,
-    CommandLlmTestResultDto, CommandMapSnapshotDto, CommandMemoryDto, CommandNodeDto, CommandPreviewDto,
-    CommandStartPlanDto, CommandStrategyCardDto, CommandStrategyExperimentDto,
-    CommandSupportTemplateDto, CommandVaultExportDto, CommandVaultFileDto, CommandVaultImportDto,
-    CommandWorkspaceDto, SharedCommandRuntime,
+    self, CommandAgentResponseDto, CommandAppSettingsDto, CommandAttentionSessionDto,
+    CommandCheckInDto, CommandContextProfileDto, CommandEdgeDto, CommandErrorDto,
+    CommandLlmSettingsDto, CommandLlmTestResultDto, CommandMapSnapshotDto, CommandMemoryDto,
+    CommandNodeDto, CommandPreviewDto, CommandStartPlanDto, CommandStrategyCardDto,
+    CommandStrategyExperimentDto, CommandSupportTemplateDto, CommandVaultExportDto,
+    CommandVaultFileDto, CommandVaultImportDto, CommandWorkspaceDto, SharedCommandRuntime,
 };
 
 #[tauri::command]
@@ -290,6 +290,26 @@ pub fn check_in_list(
     workspace_id: String,
 ) -> Result<Vec<CommandCheckInDto>, CommandErrorDto> {
     tauri_api::check_in_list(runtime.inner().clone(), workspace_id)
+}
+
+#[tauri::command]
+pub fn settings_get_app(
+    runtime: tauri::State<'_, SharedCommandRuntime>,
+) -> Result<CommandAppSettingsDto, CommandErrorDto> {
+    tauri_api::settings_get_app(runtime.inner().clone())
+}
+
+#[tauri::command]
+pub fn settings_update_interface(
+    runtime: tauri::State<'_, SharedCommandRuntime>,
+    theme_preference: String,
+    language_preference: String,
+) -> Result<CommandAppSettingsDto, CommandErrorDto> {
+    tauri_api::settings_update_interface(
+        runtime.inner().clone(),
+        theme_preference,
+        language_preference,
+    )
 }
 
 #[tauri::command]

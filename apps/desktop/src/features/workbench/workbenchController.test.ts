@@ -79,6 +79,35 @@ test('initializes workbench from the command map without a pre-saved preview', a
   ]);
 });
 
+test('initializes app settings for interface preferences and saved LLM settings', async () => {
+  const client = createMockCommandClient();
+  await client.settingsUpdateInterface('dark', 'zh-CN');
+  await client.settingsUpdateLlm(
+    'google_gemini',
+    'gemini_generate_content',
+    'https://generativelanguage.googleapis.com/v1beta',
+    'gemini-key',
+    'gemini-2.5-flash',
+    30,
+  );
+
+  const state = await initializeWorkbench(client);
+
+  assert.deepEqual(state.appSettings, {
+    llmSettings: {
+      providerId: 'google_gemini',
+      apiMode: 'gemini_generate_content',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      apiKey: 'gemini-key',
+      model: 'gemini-2.5-flash',
+      timeoutSeconds: 30,
+    },
+    themePreference: 'dark',
+    languagePreference: 'zh-CN',
+    interfacePreferencesSaved: true,
+  });
+});
+
 test('initializes visible check-in history from persisted command state', async () => {
   const client = createMockCommandClient();
   await client.checkInCreate('default-workspace', 'next-1', 'Started with the source outline.');

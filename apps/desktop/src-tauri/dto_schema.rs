@@ -237,6 +237,15 @@ const COMMAND_DTO_TYPES: &[TypeAlias] = &[
         ]),
     },
     TypeAlias {
+        name: "CommandAppSettings",
+        body: TypeBody::Object(&[
+            "llmSettings: CommandLlmSettings | null",
+            "themePreference: 'system' | 'light' | 'dark'",
+            "languagePreference: 'system' | 'en' | 'zh-CN'",
+            "interfacePreferencesSaved: boolean",
+        ]),
+    },
+    TypeAlias {
         name: "CommandLlmTestResult",
         body: TypeBody::Object(&["status: 'ok'", "model: string", "message: string"]),
     },

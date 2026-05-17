@@ -30,7 +30,9 @@ const REGISTERED_COMMAND_NAMES: &[&str] = &[
     "vault_export",
     "check_in_create",
     "check_in_list",
+    "settings_get_app",
     "settings_test_llm",
+    "settings_update_interface",
     "settings_update_llm",
 ];
 

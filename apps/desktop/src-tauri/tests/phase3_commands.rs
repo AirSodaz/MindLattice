@@ -8,10 +8,10 @@ use mindlattice_desktop_commands::commands::{
     agent_preview_get, agent_preview_reject, agent_preview_revise, agent_turn_submit,
     attention_session_close, attention_session_start, check_in_create, context_profile_get,
     context_profile_update, edge_create, edge_delete, map_get, node_create, node_move, node_update,
-    settings_test_llm, settings_update_llm, start_plan_get, strategy_cards_list,
-    strategy_experiment_create,
-    support_adopt, support_discard, support_templates_list, vault_export, vault_import,
-    workspace_open_default, CommandError, CommandRuntime, VaultImportFileDto,
+    settings_get_app, settings_test_llm, settings_update_interface, settings_update_llm,
+    start_plan_get, strategy_cards_list, strategy_experiment_create, support_adopt,
+    support_discard, support_templates_list, vault_export, vault_import, workspace_open_default,
+    CommandError, CommandRuntime, VaultImportFileDto,
 };
 use mindlattice_storage::repository::MindLatticeRepository;
 use std::{
@@ -1086,6 +1086,69 @@ fn command_lists_workspace_check_ins_for_review() {
 }
 
 #[test]
+fn settings_get_app_returns_defaults_when_empty() {
+    let runtime = CommandRuntime::in_memory().expect("command runtime opens");
+
+    let settings = settings_get_app(&runtime).expect("app settings load");
+
+    assert_eq!(settings.llm_settings, None);
+    assert_eq!(settings.theme_preference, "system");
+    assert_eq!(settings.language_preference, "system");
+    assert_eq!(settings.interface_preferences_saved, false);
+}
+
+#[test]
+fn settings_get_app_reads_saved_llm_and_interface_preferences_after_reopen() {
+    let db_path = test_database_path("app-settings-reopen");
+    {
+        let runtime = CommandRuntime::open_file(&db_path).expect("file runtime opens");
+        settings_update_llm(
+            &runtime,
+            "google_gemini",
+            "gemini_generate_content",
+            "https://generativelanguage.googleapis.com/v1beta",
+            "gemini-key",
+            "gemini-2.5-flash",
+            30,
+        )
+        .expect("llm settings saved");
+        settings_update_interface(&runtime, "dark", "zh-CN").expect("interface settings saved");
+    }
+
+    let reopened = CommandRuntime::open_file(&db_path).expect("file runtime reopens");
+    let settings = settings_get_app(&reopened).expect("app settings load after reopen");
+
+    let llm = settings.llm_settings.expect("saved llm settings returned");
+    assert_eq!(llm.provider_id.as_str(), "google_gemini");
+    assert_eq!(llm.api_mode.as_str(), "gemini_generate_content");
+    assert_eq!(
+        llm.base_url,
+        "https://generativelanguage.googleapis.com/v1beta"
+    );
+    assert_eq!(llm.api_key, "gemini-key");
+    assert_eq!(llm.model, "gemini-2.5-flash");
+    assert_eq!(llm.timeout_seconds, 30);
+    assert_eq!(settings.theme_preference, "dark");
+    assert_eq!(settings.language_preference, "zh-CN");
+    assert_eq!(settings.interface_preferences_saved, true);
+
+    let _ = std::fs::remove_file(db_path);
+}
+
+#[test]
+fn settings_update_interface_rejects_invalid_preferences() {
+    let runtime = CommandRuntime::in_memory().expect("command runtime opens");
+
+    let theme_error = settings_update_interface(&runtime, "quiet", "en")
+        .expect_err("invalid theme preference is rejected");
+    let language_error = settings_update_interface(&runtime, "dark", "fr")
+        .expect_err("invalid language preference is rejected");
+
+    assert_eq!(theme_error, CommandError::InvalidCommandInput);
+    assert_eq!(language_error, CommandError::InvalidCommandInput);
+}
+
+#[test]
 fn command_updates_llm_settings_with_validation() {
     let runtime = CommandRuntime::in_memory().expect("command runtime opens");
 
@@ -1112,7 +1175,7 @@ fn command_updates_llm_settings_with_validation() {
         "model-a",
         30,
     )
-        .expect_err("invalid settings return command error");
+    .expect_err("invalid settings return command error");
     assert_eq!(error, CommandError::InvalidLlmSettings);
 }
 
@@ -1178,7 +1241,7 @@ fn command_tests_llm_settings_without_persisting_them() {
         "model-a",
         5,
     )
-        .expect("provider test succeeds");
+    .expect("provider test succeeds");
 
     assert_eq!(result.status, "ok");
     assert_eq!(result.model, "model-a");
@@ -1209,7 +1272,7 @@ fn command_test_llm_settings_validates_local_config_before_network() {
         "model-a",
         5,
     )
-        .expect_err("invalid local config is rejected before provider transport");
+    .expect_err("invalid local config is rejected before provider transport");
 
     assert_eq!(error, CommandError::InvalidLlmSettings);
 }
@@ -1231,7 +1294,7 @@ fn command_test_llm_settings_maps_provider_failure_to_provider_error() {
         "model-a",
         5,
     )
-        .expect_err("provider failure is surfaced without saving settings");
+    .expect_err("provider failure is surfaced without saving settings");
 
     assert_eq!(error, CommandError::Provider);
     captured_request

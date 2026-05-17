@@ -42,7 +42,9 @@ fn main() {
             tauri_commands::vault_import,
             tauri_commands::check_in_create,
             tauri_commands::check_in_list,
+            tauri_commands::settings_get_app,
             tauri_commands::settings_test_llm,
+            tauri_commands::settings_update_interface,
             tauri_commands::settings_update_llm,
         ])
         .run(tauri::generate_context!())

@@ -7,8 +7,8 @@ use std::{
 };
 
 use mindlattice_ai::provider::{
-    build_llm_provider, LlmApiMode, LlmError, LlmProvider, LlmProviderConfig,
-    LlmProviderId, LlmStructuredRequest, OpenAiCompatibleProvider,
+    build_llm_provider, LlmApiMode, LlmError, LlmProvider, LlmProviderConfig, LlmProviderId,
+    LlmStructuredRequest, OpenAiCompatibleProvider,
 };
 
 #[test]
@@ -93,7 +93,8 @@ fn openai_compatible_provider_posts_structured_chat_completion_request() {
 
 #[test]
 fn provider_factory_dispatches_openai_responses_api_mode() {
-    let response_body = r#"{"output":[{"content":[{"type":"output_text","text":"{\"preview_id\":\"p1\"}"}]}]}"#;
+    let response_body =
+        r#"{"output":[{"content":[{"type":"output_text","text":"{\"preview_id\":\"p1\"}"}]}]}"#;
     let (base_url, captured_request, server) = start_json_server("200 OK", response_body);
     let provider = build_llm_provider(LlmProviderConfig {
         api_mode: LlmApiMode::OpenAiResponses,
@@ -118,8 +119,7 @@ fn provider_factory_dispatches_openai_responses_api_mode() {
 
 #[test]
 fn provider_factory_dispatches_claude_messages_api_mode() {
-    let response_body =
-        r#"{"content":[{"type":"text","text":"{\"preview_id\":\"claude\"}"}]}"#;
+    let response_body = r#"{"content":[{"type":"text","text":"{\"preview_id\":\"claude\"}"}]}"#;
     let (base_url, captured_request, server) = start_json_server("200 OK", response_body);
     let provider = build_llm_provider(LlmProviderConfig {
         provider_id: LlmProviderId::AnthropicClaude,

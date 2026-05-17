@@ -5,6 +5,7 @@ import type {
 } from '../../features/workbench/workbenchModel';
 import type {
   CommandAgentResponse,
+  CommandAppSettings,
   CommandAttentionSession,
   CommandCheckIn,
   CommandContextProfile,
@@ -38,6 +39,7 @@ export type VaultExportProfile = 'obsidian_readable' | 'plain_markdown';
 
 export type {
   CommandAgentResponse,
+  CommandAppSettings,
   CommandAttentionSession,
   CommandCheckIn,
   CommandContextProfile,
@@ -115,6 +117,7 @@ export type CommandClient = {
   vaultImport: (workspaceId: string, files: CommandVaultFile[]) => Promise<CommandVaultImport>;
   checkInCreate: (workspaceId: string, nodeId: string | null, body: string) => Promise<CommandCheckIn>;
   checkInList: (workspaceId: string) => Promise<CommandCheckIn[]>;
+  settingsGetApp: () => Promise<CommandAppSettings>;
   settingsTestLlm: (
     providerId: string,
     apiMode: string,
@@ -131,6 +134,10 @@ export type CommandClient = {
     model: string,
     timeoutSeconds: number,
   ) => Promise<CommandLlmSettings>;
+  settingsUpdateInterface: (
+    themePreference: CommandAppSettings['themePreference'],
+    languagePreference: CommandAppSettings['languagePreference'],
+  ) => Promise<CommandAppSettings>;
 };
 
 export type TauriInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -268,10 +275,13 @@ export function createTauriCommandClient(
     checkInCreate: (workspaceId, nodeId, body) =>
       invoke<CommandCheckIn>('check_in_create', { workspaceId, nodeId, body }),
     checkInList: (workspaceId) => invoke<CommandCheckIn[]>('check_in_list', { workspaceId }),
+    settingsGetApp: () => invoke<CommandAppSettings>('settings_get_app'),
     settingsTestLlm: (providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) =>
       invoke<CommandLlmTestResult>('settings_test_llm', { providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds }),
     settingsUpdateLlm: (providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) =>
       invoke<CommandLlmSettings>('settings_update_llm', { providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds }),
+    settingsUpdateInterface: (themePreference, languagePreference) =>
+      invoke<CommandAppSettings>('settings_update_interface', { themePreference, languagePreference }),
   };
 }
 
@@ -284,6 +294,9 @@ export function createMockCommandClient(): CommandClient {
     contextProfile: CommandContextProfile;
     memory: CommandMemory[];
     settings: CommandLlmSettings | null;
+    themePreference: CommandAppSettings['themePreference'];
+    languagePreference: CommandAppSettings['languagePreference'];
+    interfacePreferencesSaved: boolean;
     nextNodeSequence: number;
     nextEdgeSequence: number;
     nextSessionSequence: number;
@@ -304,6 +317,9 @@ export function createMockCommandClient(): CommandClient {
     },
     memory: [],
     settings: null,
+    themePreference: 'system',
+    languagePreference: 'system',
+    interfacePreferencesSaved: false,
     nextNodeSequence: 1,
     nextEdgeSequence: 1,
     nextSessionSequence: 1,
@@ -618,6 +634,14 @@ export function createMockCommandClient(): CommandClient {
         .filter((checkIn) => checkIn.workspaceId === workspaceId)
         .map((checkIn) => ({ ...checkIn }));
     },
+    async settingsGetApp() {
+      return {
+        llmSettings: state.settings ? { ...state.settings } : null,
+        themePreference: state.themePreference,
+        languagePreference: state.languagePreference,
+        interfacePreferencesSaved: state.interfacePreferencesSaved,
+      };
+    },
     async settingsTestLlm(providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) {
       if (!providerId.trim() || !apiMode.trim() || !baseUrl.trim() || !apiKey.trim() || !model.trim() || timeoutSeconds <= 0) {
         throw new Error('Complete provider settings before testing.');
@@ -638,6 +662,15 @@ export function createMockCommandClient(): CommandClient {
         llmProviderSetupState: 'configured',
       };
       return { ...state.settings };
+    },
+    async settingsUpdateInterface(themePreference, languagePreference) {
+      if (!isThemePreference(themePreference) || !isLanguagePreference(languagePreference)) {
+        throw new Error('Invalid interface preferences.');
+      }
+      state.themePreference = themePreference;
+      state.languagePreference = languagePreference;
+      state.interfacePreferencesSaved = true;
+      return this.settingsGetApp();
     },
   };
 }
@@ -764,6 +797,14 @@ function positionForNode(kind: CommandNodeKind, index: number): { x: number; y: 
     support: { x: 64, y: 24 },
   };
   return positions[kind] ?? { x: 30 + index * 8, y: 50 };
+}
+
+function isThemePreference(value: string): value is CommandAppSettings['themePreference'] {
+  return value === 'system' || value === 'light' || value === 'dark';
+}
+
+function isLanguagePreference(value: string): value is CommandAppSettings['languagePreference'] {
+  return value === 'system' || value === 'en' || value === 'zh-CN';
 }
 
 function titleFromMarkdown(content: string): string | null {

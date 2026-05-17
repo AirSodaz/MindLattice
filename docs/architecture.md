@@ -407,6 +407,8 @@ Initial Tauri commands:
 - `agent_memory_delete`
 - `vault_import`
 - `vault_export`
+- `settings_get_app`
+- `settings_update_interface`
 - `settings_update_llm`
 
 Command responsibilities:
@@ -423,6 +425,8 @@ Command responsibilities:
 - `agent_preview_accept` converts accepted preview operations into validated core mutations.
 - `agent_preview_reject` closes an active preview without mutating persisted graph data.
 - `agent_memory_list`, `agent_memory_update`, and `agent_memory_delete` expose preference memory management.
+- `settings_get_app` returns saved LLM settings plus interface preferences from SQLite.
+- `settings_update_interface` persists theme and language preferences using validated enum values.
 
 Commands MUST return typed success values or structured errors. User-facing error messages SHOULD be short and actionable.
 
@@ -569,7 +573,8 @@ Export is a snapshot, not live sync.
 
 - Local data MUST stay local by default.
 - LLM calls MUST use configured provider settings and MUST be unavailable until settings are configured.
-- API keys MUST use platform-appropriate secure storage once implementation reaches settings persistence.
+- The current MVP settings command stores API keys in the local SQLite settings table as a temporary implementation.
+- API keys MUST migrate to platform-appropriate secure storage before release hardening.
 - Exported Markdown may contain sensitive user data and MUST be treated as user-controlled output.
 - Medical, diagnostic, medication, symptom-score, and treatment-plan content MUST be blocked before it appears as app guidance.
 - Crisis language MUST move the user out of ordinary productivity flow and into concise professional or emergency support guidance.

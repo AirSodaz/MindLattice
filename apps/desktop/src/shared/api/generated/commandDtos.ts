@@ -188,6 +188,13 @@ export type CommandLlmSettings = {
   timeoutSeconds: number;
 };
 
+export type CommandAppSettings = {
+  llmSettings: CommandLlmSettings | null;
+  themePreference: 'system' | 'light' | 'dark';
+  languagePreference: 'system' | 'en' | 'zh-CN';
+  interfacePreferencesSaved: boolean;
+};
+
 export type CommandLlmTestResult = {
   status: 'ok';
   model: string;

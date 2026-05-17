@@ -106,13 +106,13 @@ impl CommandRuntime {
             .parse::<u64>()
             .map_err(|_| CommandError::InvalidLlmSettings)?;
         let provider_id = match self.repo.setting("llm.provider_id")? {
-            Some(value) => LlmProviderId::from_str(&value)
-                .ok_or(CommandError::InvalidLlmSettings)?,
+            Some(value) => {
+                LlmProviderId::from_str(&value).ok_or(CommandError::InvalidLlmSettings)?
+            }
             None => LlmProviderId::OpenAi,
         };
         let api_mode = match self.repo.setting("llm.api_mode")? {
-            Some(value) => LlmApiMode::from_str(&value)
-                .ok_or(CommandError::InvalidLlmSettings)?,
+            Some(value) => LlmApiMode::from_str(&value).ok_or(CommandError::InvalidLlmSettings)?,
             None => LlmApiMode::OpenAiChatCompletions,
         };
         let config = LlmProviderConfig {
@@ -159,6 +159,14 @@ pub struct LlmProviderTestResult {
     pub status: String,
     pub model: String,
     pub message: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AppSettings {
+    pub llm_settings: Option<LlmProviderConfig>,
+    pub theme_preference: String,
+    pub language_preference: String,
+    pub interface_preferences_saved: bool,
 }
 
 impl From<RepositoryError> for CommandError {
@@ -700,6 +708,42 @@ pub fn check_in_list(
     Ok(runtime.repo.check_ins(workspace_id)?)
 }
 
+pub fn settings_get_app(runtime: &CommandRuntime) -> Result<AppSettings, CommandError> {
+    let theme_preference = runtime
+        .repo
+        .setting("ui.theme_preference")?
+        .unwrap_or_else(|| "system".to_string());
+    let language_preference = runtime
+        .repo
+        .setting("ui.language_preference")?
+        .unwrap_or_else(|| "system".to_string());
+    validate_theme_preference(&theme_preference)?;
+    validate_language_preference(&language_preference)?;
+    Ok(AppSettings {
+        llm_settings: runtime.saved_llm_config()?,
+        interface_preferences_saved: runtime.repo.setting("ui.theme_preference")?.is_some()
+            || runtime.repo.setting("ui.language_preference")?.is_some(),
+        theme_preference,
+        language_preference,
+    })
+}
+
+pub fn settings_update_interface(
+    runtime: &CommandRuntime,
+    theme_preference: &str,
+    language_preference: &str,
+) -> Result<AppSettings, CommandError> {
+    validate_theme_preference(theme_preference)?;
+    validate_language_preference(language_preference)?;
+    runtime
+        .repo
+        .upsert_setting("ui.theme_preference", theme_preference)?;
+    runtime
+        .repo
+        .upsert_setting("ui.language_preference", language_preference)?;
+    settings_get_app(runtime)
+}
+
 pub fn settings_update_llm(
     runtime: &CommandRuntime,
     provider_id: &str,
@@ -732,6 +776,7 @@ pub fn settings_update_llm(
     runtime
         .repo
         .upsert_setting("llm.base_url", &config.base_url)?;
+    // Temporary MVP storage: migrate API keys to platform secure storage before release hardening.
     runtime
         .repo
         .upsert_setting("llm.api_key", &config.api_key)?;
@@ -740,6 +785,20 @@ pub fn settings_update_llm(
         .repo
         .upsert_setting("llm.timeout_seconds", &config.timeout_seconds.to_string())?;
     Ok(config)
+}
+
+fn validate_theme_preference(value: &str) -> Result<(), CommandError> {
+    match value {
+        "system" | "light" | "dark" => Ok(()),
+        _ => Err(CommandError::InvalidCommandInput),
+    }
+}
+
+fn validate_language_preference(value: &str) -> Result<(), CommandError> {
+    match value {
+        "system" | "en" | "zh-CN" => Ok(()),
+        _ => Err(CommandError::InvalidCommandInput),
+    }
 }
 
 pub fn settings_test_llm(

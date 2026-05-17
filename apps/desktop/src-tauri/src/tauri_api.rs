@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{Manager, Runtime};
 
 use crate::commands::{
-    self, CommandError, CommandRuntime, LlmProviderTestResult, VaultImportFileDto,
+    self, AppSettings, CommandError, CommandRuntime, LlmProviderTestResult, VaultImportFileDto,
 };
 
 pub const REGISTERED_COMMAND_NAMES: &[&str] = &[
@@ -50,7 +50,9 @@ pub const REGISTERED_COMMAND_NAMES: &[&str] = &[
     "vault_export",
     "check_in_create",
     "check_in_list",
+    "settings_get_app",
     "settings_test_llm",
+    "settings_update_interface",
     "settings_update_llm",
 ];
 
@@ -319,6 +321,15 @@ pub struct CommandLlmSettingsDto {
     pub api_key: String,
     pub model: String,
     pub timeout_seconds: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandAppSettingsDto {
+    pub llm_settings: Option<CommandLlmSettingsDto>,
+    pub theme_preference: String,
+    pub language_preference: String,
+    pub interface_preferences_saved: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -681,6 +692,26 @@ pub fn check_in_list(
         .map_err(Into::into)
 }
 
+pub fn settings_get_app(
+    runtime: SharedCommandRuntime,
+) -> Result<CommandAppSettingsDto, CommandErrorDto> {
+    let runtime = runtime.lock().map_err(|_| CommandError::Repository)?;
+    commands::settings_get_app(&runtime)
+        .map(CommandAppSettingsDto::from)
+        .map_err(Into::into)
+}
+
+pub fn settings_update_interface(
+    runtime: SharedCommandRuntime,
+    theme_preference: String,
+    language_preference: String,
+) -> Result<CommandAppSettingsDto, CommandErrorDto> {
+    let runtime = runtime.lock().map_err(|_| CommandError::Repository)?;
+    commands::settings_update_interface(&runtime, &theme_preference, &language_preference)
+        .map(CommandAppSettingsDto::from)
+        .map_err(Into::into)
+}
+
 pub fn settings_update_llm(
     runtime: SharedCommandRuntime,
     provider_id: String,
@@ -700,8 +731,8 @@ pub fn settings_update_llm(
         &model,
         timeout_seconds,
     )
-        .map(CommandLlmSettingsDto::from)
-        .map_err(Into::into)
+    .map(CommandLlmSettingsDto::from)
+    .map_err(Into::into)
 }
 
 pub fn settings_test_llm(
@@ -723,8 +754,8 @@ pub fn settings_test_llm(
         &model,
         timeout_seconds,
     )
-        .map(CommandLlmTestResultDto::from)
-        .map_err(Into::into)
+    .map(CommandLlmTestResultDto::from)
+    .map_err(Into::into)
 }
 
 impl From<Workspace> for CommandWorkspaceDto {
@@ -964,6 +995,17 @@ impl From<LlmProviderConfig> for CommandLlmSettingsDto {
             api_key: value.api_key,
             model: value.model,
             timeout_seconds: value.timeout_seconds,
+        }
+    }
+}
+
+impl From<AppSettings> for CommandAppSettingsDto {
+    fn from(value: AppSettings) -> Self {
+        Self {
+            llm_settings: value.llm_settings.map(CommandLlmSettingsDto::from),
+            theme_preference: value.theme_preference,
+            language_preference: value.language_preference,
+            interface_preferences_saved: value.interface_preferences_saved,
         }
     }
 }

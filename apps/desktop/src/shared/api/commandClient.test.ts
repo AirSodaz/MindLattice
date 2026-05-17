@@ -220,6 +220,7 @@ test('Tauri command client invokes full shell command surface for phase-one data
   await client.agentMemoryDelete('workspace-1', 'memory-1');
   await client.checkInCreate('workspace-1', 'next-1', 'Started with the smallest visible step.');
   await client.checkInList('workspace-1');
+  await client.settingsGetApp();
   await client.settingsTestLlm(
     'ollama_local',
     'openai_chat_completions',
@@ -236,6 +237,7 @@ test('Tauri command client invokes full shell command surface for phase-one data
     'llama3.2',
     30,
   );
+  await client.settingsUpdateInterface('dark', 'zh-CN');
 
   assert.deepEqual(calls, [
     { command: 'node_create', args: { workspaceId: 'workspace-1', kind: 'task', title: 'Draft outline' } },
@@ -269,6 +271,7 @@ test('Tauri command client invokes full shell command surface for phase-one data
       },
     },
     { command: 'check_in_list', args: { workspaceId: 'workspace-1' } },
+    { command: 'settings_get_app', args: undefined },
     {
       command: 'settings_test_llm',
       args: {
@@ -291,7 +294,43 @@ test('Tauri command client invokes full shell command surface for phase-one data
         timeoutSeconds: 30,
       },
     },
+    { command: 'settings_update_interface', args: { themePreference: 'dark', languagePreference: 'zh-CN' } },
   ]);
+});
+
+test('mock app settings persist interface preferences and saved LLM settings', async () => {
+  const client = createMockCommandClient();
+
+  assert.deepEqual(await client.settingsGetApp(), {
+    llmSettings: null,
+    themePreference: 'system',
+    languagePreference: 'system',
+    interfacePreferencesSaved: false,
+  });
+
+  await client.settingsUpdateInterface('dark', 'zh-CN');
+  await client.settingsUpdateLlm(
+    'openai',
+    'openai_chat_completions',
+    'https://api.example.test/v1',
+    'test-key',
+    'model-a',
+    30,
+  );
+
+  assert.deepEqual(await client.settingsGetApp(), {
+    llmSettings: {
+      providerId: 'openai',
+      apiMode: 'openai_chat_completions',
+      baseUrl: 'https://api.example.test/v1',
+      apiKey: 'test-key',
+      model: 'model-a',
+      timeoutSeconds: 30,
+    },
+    themePreference: 'dark',
+    languagePreference: 'zh-CN',
+    interfacePreferencesSaved: true,
+  });
 });
 
 test('mock provider test succeeds without saving LLM settings or enabling agent turns', async () => {

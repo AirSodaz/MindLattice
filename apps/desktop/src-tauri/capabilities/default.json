@@ -47,7 +47,9 @@
     "allow-vault-export",
     "allow-check-in-create",
     "allow-check-in-list",
+    "allow-settings-get-app",
     "allow-settings-test-llm",
+    "allow-settings-update-interface",
     "allow-settings-update-llm"
   ]
 }

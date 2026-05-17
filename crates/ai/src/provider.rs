@@ -177,12 +177,12 @@ pub fn build_llm_provider(
     config: LlmProviderConfig,
 ) -> Result<Box<dyn LlmProvider + Send + Sync>, LlmConfigError> {
     match config.api_mode {
-        LlmApiMode::OpenAiChatCompletions => {
-            Ok(Box::new(OpenAiCompatibleProvider::new(config)?))
-        }
+        LlmApiMode::OpenAiChatCompletions => Ok(Box::new(OpenAiCompatibleProvider::new(config)?)),
         LlmApiMode::OpenAiResponses => Ok(Box::new(OpenAiResponsesProvider::new(config)?)),
         LlmApiMode::ClaudeMessages => Ok(Box::new(ClaudeMessagesProvider::new(config)?)),
-        LlmApiMode::GeminiGenerateContent => Ok(Box::new(GeminiGenerateContentProvider::new(config)?)),
+        LlmApiMode::GeminiGenerateContent => {
+            Ok(Box::new(GeminiGenerateContentProvider::new(config)?))
+        }
     }
 }
 
@@ -375,11 +375,12 @@ impl LlmProvider for GeminiGenerateContentProvider {
         let response_body = response
             .json::<GeminiGenerateContentResponse>()
             .map_err(|_| LlmError::MalformedOutput)?;
-        if response_body
-            .candidates
-            .iter()
-            .any(|candidate| matches!(candidate.finish_reason.as_deref(), Some("SAFETY" | "RECITATION")))
-        {
+        if response_body.candidates.iter().any(|candidate| {
+            matches!(
+                candidate.finish_reason.as_deref(),
+                Some("SAFETY" | "RECITATION")
+            )
+        }) {
             return Err(LlmError::Refusal);
         }
         non_empty_response(response_body.output_text(), prompt_version)
@@ -474,7 +475,10 @@ impl<'a> OpenAiResponsesRequest<'a> {
         Self {
             model,
             instructions: &request.system_prompt,
-            input: format!("{}\n\nOutput schema:\n{}", request.user_prompt, request.output_schema),
+            input: format!(
+                "{}\n\nOutput schema:\n{}",
+                request.user_prompt, request.output_schema
+            ),
             text: json!({ "format": { "type": "json_object" } }),
             temperature: 0.2,
         }
@@ -497,7 +501,10 @@ impl<'a> ClaudeMessagesRequest<'a> {
             max_tokens: 4096,
             messages: vec![ClaudeMessage {
                 role: "user",
-                content: format!("{}\n\nOutput schema:\n{}", request.user_prompt, request.output_schema),
+                content: format!(
+                    "{}\n\nOutput schema:\n{}",
+                    request.user_prompt, request.output_schema
+                ),
             }],
         }
     }
@@ -526,7 +533,10 @@ impl GeminiGenerateContentRequest {
             },
             contents: vec![GeminiContent {
                 parts: vec![GeminiPart {
-                    text: format!("{}\n\nOutput schema:\n{}", request.user_prompt, request.output_schema),
+                    text: format!(
+                        "{}\n\nOutput schema:\n{}",
+                        request.user_prompt, request.output_schema
+                    ),
                 }],
             }],
             generation_config: json!({
