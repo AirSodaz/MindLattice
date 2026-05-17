@@ -1,7 +1,7 @@
 use crate::tauri_api::{
     self, CommandAgentResponseDto, CommandAttentionSessionDto, CommandCheckInDto,
     CommandContextProfileDto, CommandEdgeDto, CommandErrorDto, CommandLlmSettingsDto,
-    CommandMapSnapshotDto, CommandMemoryDto, CommandNodeDto, CommandPreviewDto,
+    CommandLlmTestResultDto, CommandMapSnapshotDto, CommandMemoryDto, CommandNodeDto, CommandPreviewDto,
     CommandStartPlanDto, CommandStrategyCardDto, CommandStrategyExperimentDto,
     CommandSupportTemplateDto, CommandVaultExportDto, CommandVaultFileDto, CommandVaultImportDto,
     CommandWorkspaceDto, SharedCommandRuntime,
@@ -301,6 +301,23 @@ pub fn settings_update_llm(
     timeout_seconds: u64,
 ) -> Result<CommandLlmSettingsDto, CommandErrorDto> {
     tauri_api::settings_update_llm(
+        runtime.inner().clone(),
+        base_url,
+        api_key,
+        model,
+        timeout_seconds,
+    )
+}
+
+#[tauri::command]
+pub fn settings_test_llm(
+    runtime: tauri::State<'_, SharedCommandRuntime>,
+    base_url: String,
+    api_key: String,
+    model: String,
+    timeout_seconds: u64,
+) -> Result<CommandLlmTestResultDto, CommandErrorDto> {
+    tauri_api::settings_test_llm(
         runtime.inner().clone(),
         base_url,
         api_key,

@@ -18,6 +18,7 @@ type SupportCategoryOption = {
 export type SettingsPanelProps = {
   adultContextOptions: string[];
   executionDifficultyOptions: string[];
+  isLlmTesting?: boolean;
   isLlmSaving: boolean;
   isOnboardingSaving: boolean;
   llmApiKey: string;
@@ -27,6 +28,9 @@ export type SettingsPanelProps = {
   onboardingContexts: string[];
   onboardingDifficulties: string[];
   onboardingSupportCategories: CommandSupportCategory[];
+  providerTestMessage?: string | null;
+  providerTestStatus?: 'idle' | 'ok' | 'failed';
+  onTestLlmSettings?: () => void;
   onSaveLlmSettings: () => void;
   onSaveOnboardingProfile: () => void;
   profile: SettingsProfile;
@@ -47,6 +51,7 @@ export type SettingsPanelProps = {
 export function SettingsPanel({
   adultContextOptions,
   executionDifficultyOptions,
+  isLlmTesting = false,
   isLlmSaving,
   isOnboardingSaving,
   llmApiKey,
@@ -63,9 +68,12 @@ export function SettingsPanel({
   onOnboardingContextsChange,
   onOnboardingDifficultiesChange,
   onOnboardingSupportCategoriesChange,
+  onTestLlmSettings,
   onSaveLlmSettings,
   onSaveOnboardingProfile,
   onThemePreferenceChange,
+  providerTestMessage,
+  providerTestStatus = 'idle',
   settingsSections,
   supportCategoryOptions,
   themeOptions,
@@ -110,12 +118,16 @@ export function SettingsPanel({
         </div>
         <label>
           Base URL
-          <input disabled={isLlmSaving} onChange={(event) => onLlmBaseUrlChange(event.target.value)} value={llmBaseUrl} />
+          <input
+            disabled={isLlmSaving || isLlmTesting}
+            onChange={(event) => onLlmBaseUrlChange(event.target.value)}
+            value={llmBaseUrl}
+          />
         </label>
         <label>
           API key
           <input
-            disabled={isLlmSaving}
+            disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmApiKeyChange(event.target.value)}
             type="password"
             value={llmApiKey}
@@ -124,7 +136,7 @@ export function SettingsPanel({
         <label>
           Model
           <input
-            disabled={isLlmSaving}
+            disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmModelChange(event.target.value)}
             placeholder="gpt-4.1-mini or local model"
             value={llmModel}
@@ -133,16 +145,30 @@ export function SettingsPanel({
         <label>
           Timeout
           <input
-            disabled={isLlmSaving}
+            disabled={isLlmSaving || isLlmTesting}
             min={5}
             onChange={(event) => onLlmTimeoutSecondsChange(Number(event.target.value))}
             type="number"
             value={llmTimeoutSeconds}
           />
         </label>
-        <button disabled={isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()} type="submit">
-          Save provider
-        </button>
+        {providerTestMessage ? (
+          <p className={`provider-test-status provider-test-status-${providerTestStatus}`}>
+            {providerTestMessage}
+          </p>
+        ) : null}
+        <div className="action-row">
+          <button
+            disabled={isLlmTesting || isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()}
+            onClick={onTestLlmSettings}
+            type="button"
+          >
+            Test connection
+          </button>
+          <button disabled={isLlmSaving || isLlmTesting || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()} type="submit">
+            Save provider
+          </button>
+        </div>
       </form>
       <form className="settings-form" onSubmit={handleProfileSubmit}>
         <div>

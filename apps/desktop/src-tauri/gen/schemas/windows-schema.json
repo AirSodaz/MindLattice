@@ -2121,6 +2121,12 @@
           "markdownDescription": "Enables the node_update command without any pre-configured scope."
         },
         {
+          "description": "Enables the settings_test_llm command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-settings-test-llm",
+          "markdownDescription": "Enables the settings_test_llm command without any pre-configured scope."
+        },
+        {
           "description": "Enables the settings_update_llm command without any pre-configured scope.",
           "type": "string",
           "const": "allow-settings-update-llm",
@@ -2299,6 +2305,12 @@
           "type": "string",
           "const": "deny-node-update",
           "markdownDescription": "Denies the node_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the settings_test_llm command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-settings-test-llm",
+          "markdownDescription": "Denies the settings_test_llm command without any pre-configured scope."
         },
         {
           "description": "Denies the settings_update_llm command without any pre-configured scope.",

@@ -21,6 +21,7 @@ import {
   startAttentionSession,
   closeAttentionSession,
   submitAgentMessage,
+  testLlmSettings,
 } from './workbenchController';
 import { buildStartModeView, enterStartMode } from './workbenchModel';
 
@@ -35,6 +36,7 @@ test('mvp smoke flow covers setup, capture, preview, map editing, support, start
     ['task initiation'],
     ['task_structure'],
   );
+  state = await testLlmSettings(client, state, 'http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
   state = await saveLlmSettings(client, state, 'http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
   assert.equal(state.contextProfile.llmProviderSetupState, 'configured');
 

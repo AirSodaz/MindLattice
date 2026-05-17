@@ -31,6 +31,7 @@ import {
   saveCustomSupportTemplate,
   saveLlmSettings,
   saveOnboardingProfile,
+  testLlmSettings,
   reviseActivePreview,
   submitAgentMessage,
 } from './workbenchController';
@@ -121,11 +122,16 @@ test('initializes first-run LLM setup state from the context profile', async () 
   assert.deepEqual(state.contextProfile.executionDifficulties, ['task initiation']);
 });
 
-test('composer creates a manual focus task before LLM setup instead of promising the agent workflow', async () => {
+test('composer is blocked before LLM setup without creating fallback tasks', async () => {
   const baseClient = createMockCommandClient();
   let submittedMessage = null;
+  let createdTitle = null;
   const client = {
     ...baseClient,
+    async nodeCreate(workspaceId, kind, title) {
+      createdTitle = title;
+      return baseClient.nodeCreate(workspaceId, kind, title);
+    },
     async agentTurnSubmit(workspaceId, selectedNodeId, message) {
       submittedMessage = { workspaceId, selectedNodeId, message };
       return baseClient.agentTurnSubmit(workspaceId, selectedNodeId, message);
@@ -136,11 +142,81 @@ test('composer creates a manual focus task before LLM setup instead of promising
   const nextState = await submitAgentMessage(client, initialState, 'Plan the draft intro.');
 
   assert.equal(submittedMessage, null);
+  assert.equal(createdTitle, null);
   assert.equal(nextState.workbench.activePreview, null);
-  assert.equal(nextState.lastError, null);
-  assert.equal(nextState.workbench.nodes.some((node) => node.title === 'Plan the draft intro.'), true);
-  assert.equal(nextState.workbench.selectedNodeId, nextState.workbench.nodes.at(-1).id);
-  assert.equal(nextState.workbench.messages.at(-1).body, 'Created focus task: Plan the draft intro.');
+  assert.equal(nextState.lastError?.message, 'Configure LLM to use the execution agent.');
+  assert.equal(nextState.workbench.nodes.some((node) => node.title === 'Plan the draft intro.'), false);
+  assert.equal(nextState.workbench.messages.at(-1).body, 'Configure LLM to use the execution agent.');
+});
+
+test('testing LLM settings records test status without saving or unlocking the agent', async () => {
+  const baseClient = createMockCommandClient();
+  let savedSettings = null;
+  const client = {
+    ...baseClient,
+    async settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds) {
+      savedSettings = await baseClient.settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds);
+      return savedSettings;
+    },
+  };
+  const initialState = await initializeWorkbench(client);
+
+  const testedState = await testLlmSettings(
+    client,
+    initialState,
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
+  const blockedState = await submitAgentMessage(client, testedState, 'Break this down.');
+
+  assert.equal(savedSettings, null);
+  assert.deepEqual(testedState.providerTestResult, {
+    status: 'ok',
+    model: 'llama3.2',
+    message: 'Connection test succeeded.',
+  });
+  assert.equal(testedState.contextProfile.llmProviderSetupState, 'not_configured');
+  assert.equal(blockedState.workbench.activePreview, null);
+  assert.equal(blockedState.lastError?.message, 'Configure LLM to use the execution agent.');
+});
+
+test('saving LLM settings requires a successful matching provider test first', async () => {
+  const client = createMockCommandClient();
+  const initialState = await initializeWorkbench(client);
+
+  const untestedState = await saveLlmSettings(
+    client,
+    initialState,
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
+
+  assert.equal(untestedState.contextProfile.llmProviderSetupState, 'not_configured');
+  assert.equal(untestedState.lastError?.message, 'Test the LLM connection before saving.');
+
+  const testedState = await testLlmSettings(
+    client,
+    initialState,
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
+  const changedModelState = await saveLlmSettings(
+    client,
+    testedState,
+    'http://localhost:11434/v1',
+    'local-key',
+    'different-model',
+    30,
+  );
+
+  assert.equal(changedModelState.contextProfile.llmProviderSetupState, 'not_configured');
+  assert.equal(changedModelState.lastError?.message, 'Test the current LLM settings before saving.');
 });
 
 test('saving LLM settings marks the profile configured and enables agent turns', async () => {
@@ -160,9 +236,17 @@ test('saving LLM settings marks the profile configured and enables agent turns',
   };
   const initialState = await initializeWorkbench(client);
 
-  const configuredState = await saveLlmSettings(
+  const testedState = await testLlmSettings(
     client,
     initialState,
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
+  const configuredState = await saveLlmSettings(
+    client,
+    testedState,
     'http://localhost:11434/v1',
     'local-key',
     'llama3.2',
@@ -212,7 +296,7 @@ test('saving onboarding profile updates adult contexts without clinical language
 
 test('submitting an agent message appends the thread response and exposes a pending preview', async () => {
   const client = createMockCommandClient();
-  const initialState = markLlmConfigured(await initializeWorkbench(client));
+  const initialState = await markLlmConfigured(client, await initializeWorkbench(client));
 
   const nextState = await submitAgentMessage(client, initialState, 'Make the next action smaller.');
 
@@ -248,7 +332,7 @@ test('submitting an agent follow-up routes non-graph preview proposals into revi
       return persistedExperiment;
     },
   };
-  const initialState = markLlmConfigured(await initializeWorkbench(client));
+  const initialState = await markLlmConfigured(client, await initializeWorkbench(client));
 
   const nextState = await submitAgentMessage(client, initialState, 'This return cue helped me restart.');
 
@@ -298,7 +382,7 @@ test('revising an active preview routes non-graph follow-up proposals into revie
   };
   const submittedState = await submitAgentMessage(
     client,
-    markLlmConfigured(await initializeWorkbench(client)),
+    await markLlmConfigured(client, await initializeWorkbench(client)),
     'Make this startable.',
   );
 
@@ -325,7 +409,7 @@ test('submitting a mixed graph preview keeps non-graph proposals with the active
       };
     },
   };
-  const initialState = markLlmConfigured(await initializeWorkbench(client));
+  const initialState = await markLlmConfigured(client, await initializeWorkbench(client));
 
   const nextState = await submitAgentMessage(client, initialState, 'Add a smaller step and remember the cue.');
 
@@ -344,7 +428,7 @@ test('accepting a preview persists the proposed node and clears preview state', 
   const client = createMockCommandClient();
   const submittedState = await submitAgentMessage(
     client,
-    markLlmConfigured(await initializeWorkbench(client)),
+    await markLlmConfigured(client, await initializeWorkbench(client)),
     'Make this startable.',
   );
 
@@ -358,7 +442,7 @@ test('rejecting a preview clears preview state and leaves persisted nodes unchan
   const client = createMockCommandClient();
   const submittedState = await submitAgentMessage(
     client,
-    markLlmConfigured(await initializeWorkbench(client)),
+    await markLlmConfigured(client, await initializeWorkbench(client)),
     'Make this startable.',
   );
 
@@ -375,7 +459,7 @@ test('revising an active preview keeps it pending and leaves persisted nodes unc
   const client = createMockCommandClient();
   const submittedState = await submitAgentMessage(
     client,
-    markLlmConfigured(await initializeWorkbench(client)),
+    await markLlmConfigured(client, await initializeWorkbench(client)),
     'Make this startable.',
   );
 
@@ -965,12 +1049,14 @@ function mixedGraphAndReviewPreview() {
   };
 }
 
-function markLlmConfigured(state) {
-  return {
-    ...state,
-    contextProfile: {
-      ...state.contextProfile,
-      llmProviderSetupState: 'configured',
-    },
-  };
+async function markLlmConfigured(client, state) {
+  const testedState = await testLlmSettings(
+    client,
+    state,
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
+  return saveLlmSettings(client, testedState, 'http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
 }

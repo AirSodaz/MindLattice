@@ -147,16 +147,16 @@ The default workspace MUST be an agent-first desktop workbench, not a dashboard 
 Primary regions:
 
 - Agent thread: natural-language execution input, agent responses, tool status, and preview revision.
-- Star-map canvas: externalized task context, persisted nodes and edges, and proposed graph changes.
-- Context drawer: selected node details, active preview operations, support templates, memory, Vault, Start entry, and Settings.
+- Turn context pane: provider setup, focused canvas, preview review, Start, advanced map editing, and one secondary task panel.
+- Star-map canvas: externalized task context, persisted nodes and edges, and proposed graph changes when the current turn calls for map context.
 - Start Mode: one-action view used after the map has been reduced to a startable next action.
-- Settings: LLM provider setup, theme, and local preferences inside the context drawer.
+- Settings: LLM provider setup, theme, and local preferences as a secondary task panel.
 
-The first viewport MUST make the agent input, current task, next action, and star-map canvas available together. The default workbench SHOULD use a two-pane layout: agent thread on the left, star-map workspace on the right. It MUST NOT mount preview, inspector, support, memory, Vault, Start, and Settings surfaces as simultaneous persistent columns.
+The first viewport MUST make the agent state and the most relevant current-turn context available together. The default workbench SHOULD use a stable two-pane layout: agent thread on the left, turn context pane on the right. It MUST NOT mount preview, advanced map editing, support, memory, Vault, Start, and Settings surfaces as simultaneous persistent columns.
 
-Low-frequency tools SHOULD open in a right-side context drawer. The drawer MUST show only one tool at a time, SHOULD be about `360px` wide on desktop, and SHOULD become a full-width panel on compact screens. Closing the drawer MUST return to the two-pane workbench.
+Low-frequency tools SHOULD open as secondary task panels inside the right turn context pane. The right pane MUST show only one primary surface at a time and SHOULD become a full-width panel on compact screens. Leaving a task panel MUST return to the current turn surface.
 
-The agent composer is also the quick-capture entry. When the LLM provider is not configured, submitting text MAY create a plain task, but the UI MUST NOT promise agent-generated decomposition. Provider setup SHOULD appear as a compact setup card that opens Settings in the context drawer.
+The agent composer is also the quick-capture entry after provider setup. When the LLM provider is not configured, the composer MUST be disabled and MUST NOT create a local fallback task. Provider setup SHOULD appear as a compact setup-required card that opens the provider setup surface in the right turn context pane.
 
 The app shell MUST preserve information architecture across Windows, macOS, and Linux. Platform builds MAY adjust title-bar integration and shortcut labels, but they MUST NOT move core workflows to different navigation locations.
 

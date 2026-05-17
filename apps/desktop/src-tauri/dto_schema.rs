@@ -235,6 +235,10 @@ const COMMAND_DTO_TYPES: &[TypeAlias] = &[
         ]),
     },
     TypeAlias {
+        name: "CommandLlmTestResult",
+        body: TypeBody::Object(&["status: 'ok'", "model: string", "message: string"]),
+    },
+    TypeAlias {
         name: "CommandVaultFile",
         body: TypeBody::Object(&["filename: string", "content: string"]),
     },

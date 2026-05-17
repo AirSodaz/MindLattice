@@ -3,8 +3,8 @@ use mindlattice_core::domain::NodeKind;
 use mindlattice_desktop_commands::tauri_api::{
     agent_preview_accept, agent_preview_get, agent_preview_revise, agent_turn_submit,
     attention_session_close, check_in_create, check_in_list, map_get, registered_command_names,
-    start_plan_get, vault_export, vault_import, workspace_open_default, CommandVaultFileDto,
-    SharedCommandRuntime,
+    settings_test_llm, start_plan_get, vault_export, vault_import, workspace_open_default,
+    CommandVaultFileDto, SharedCommandRuntime,
 };
 
 #[test]
@@ -138,6 +138,7 @@ fn tauri_registration_covers_implemented_command_boundary() {
         "vault_export",
         "check_in_create",
         "check_in_list",
+        "settings_test_llm",
         "settings_update_llm",
     ] {
         assert!(
@@ -163,6 +164,7 @@ fn rust_command_dto_schema_generates_frontend_typescript_artifact() {
     assert!(generated.contains("export type CommandPreview"));
     assert!(generated.contains("proposedStrategyExperiments: CommandStrategyExperiment[]"));
     assert!(generated.contains("export type CommandVaultImport"));
+    assert!(generated.contains("export type CommandLlmTestResult"));
     assert!(
         !generated.contains("features/workbench"),
         "generated shared API DTOs must not import feature-layer workbench types"
@@ -171,6 +173,22 @@ fn rust_command_dto_schema_generates_frontend_typescript_artifact() {
         command_client.contains("from './generated/commandDtos'"),
         "commandClient.ts should consume generated DTO types instead of duplicating them"
     );
+}
+
+#[test]
+fn tauri_wrappers_return_frontend_aligned_llm_test_result_dto() {
+    let runtime = SharedCommandRuntime::in_memory().expect("runtime opens");
+
+    let error = settings_test_llm(
+        runtime,
+        String::new(),
+        "test-key".to_string(),
+        "model-a".to_string(),
+        5,
+    )
+    .expect_err("invalid test config returns a frontend command error");
+
+    assert_eq!(error.code, "invalid_llm_settings");
 }
 
 #[test]

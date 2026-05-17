@@ -14,6 +14,7 @@ import {
   leaveStartMode,
   presentCommandError,
   previewWriteSummary,
+  selectRightPaneMode,
   resolveWorkbenchShortcut,
   rejectActivePreview,
   resolveTheme,
@@ -165,6 +166,98 @@ test('preview summary states concrete write counts', () => {
       proposedStrategyExperiments: [{ id: 'strategy-1' }],
     }),
     'Accepting will add 1 draft node, 1 draft edge, 1 memory update, 1 check-in, and 1 strategy experiment.',
+  );
+});
+
+test('right pane selection prioritizes setup and active preview over task panels', () => {
+  const model = buildInitialWorkbench();
+
+  assert.equal(
+    selectRightPaneMode({
+      providerSetupRequired: true,
+      setupRequested: true,
+      activePreview: null,
+      viewMode: 'map',
+      hasGraphContext: false,
+      advancedMapRequested: false,
+      startRequested: false,
+      taskPanel: 'memory',
+      safetyRedirectActive: false,
+    }),
+    'setup',
+  );
+  assert.equal(
+    selectRightPaneMode({
+      providerSetupRequired: false,
+      setupRequested: false,
+      activePreview: model.activePreview,
+      viewMode: 'map',
+      hasGraphContext: true,
+      advancedMapRequested: true,
+      startRequested: false,
+      taskPanel: 'support',
+      safetyRedirectActive: false,
+    }),
+    'preview',
+  );
+  assert.equal(
+    selectRightPaneMode({
+      providerSetupRequired: false,
+      setupRequested: false,
+      activePreview: null,
+      viewMode: 'map',
+      hasGraphContext: true,
+      advancedMapRequested: false,
+      startRequested: false,
+      taskPanel: null,
+      safetyRedirectActive: false,
+    }),
+    'canvas',
+  );
+});
+
+test('right pane selection honors explicit start, advanced map, and task panel requests', () => {
+  assert.equal(
+    selectRightPaneMode({
+      providerSetupRequired: false,
+      setupRequested: false,
+      activePreview: null,
+      viewMode: 'map',
+      hasGraphContext: true,
+      advancedMapRequested: false,
+      startRequested: true,
+      taskPanel: null,
+      safetyRedirectActive: false,
+    }),
+    'start',
+  );
+  assert.equal(
+    selectRightPaneMode({
+      providerSetupRequired: false,
+      setupRequested: false,
+      activePreview: null,
+      viewMode: 'map',
+      hasGraphContext: true,
+      advancedMapRequested: true,
+      startRequested: false,
+      taskPanel: null,
+      safetyRedirectActive: false,
+    }),
+    'advanced_map',
+  );
+  assert.equal(
+    selectRightPaneMode({
+      providerSetupRequired: false,
+      setupRequested: false,
+      activePreview: null,
+      viewMode: 'map',
+      hasGraphContext: true,
+      advancedMapRequested: false,
+      startRequested: false,
+      taskPanel: 'memory',
+      safetyRedirectActive: false,
+    }),
+    'task_panel',
   );
 });
 

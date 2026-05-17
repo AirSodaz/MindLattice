@@ -8,7 +8,8 @@ use mindlattice_desktop_commands::commands::{
     agent_preview_get, agent_preview_reject, agent_preview_revise, agent_turn_submit,
     attention_session_close, attention_session_start, check_in_create, context_profile_get,
     context_profile_update, edge_create, edge_delete, map_get, node_create, node_move, node_update,
-    settings_update_llm, start_plan_get, strategy_cards_list, strategy_experiment_create,
+    settings_test_llm, settings_update_llm, start_plan_get, strategy_cards_list,
+    strategy_experiment_create,
     support_adopt, support_discard, support_templates_list, vault_export, vault_import,
     workspace_open_default, CommandError, CommandRuntime, VaultImportFileDto,
 };
@@ -972,6 +973,13 @@ fn command_creates_check_in_without_scoring_language() {
 fn start_openai_compatible_server(
     provider_content: &'static str,
 ) -> (String, Receiver<String>, JoinHandle<()>) {
+    start_openai_compatible_status_server("200 OK", provider_response_body(provider_content))
+}
+
+fn start_openai_compatible_status_server(
+    status_line: &'static str,
+    response_body: String,
+) -> (String, Receiver<String>, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind local provider server");
     let address = listener
         .local_addr()
@@ -984,16 +992,8 @@ fn start_openai_compatible_server(
         let request_text = read_http_request(&mut stream);
         sender.send(request_text).expect("send captured request");
 
-        let escaped_content = provider_content
-            .replace('\\', "\\\\")
-            .replace('"', "\\\"")
-            .replace('\r', "\\r")
-            .replace('\n', "\\n");
-        let response_body = format!(
-            r#"{{"choices":[{{"message":{{"content":"{escaped_content}"}},"finish_reason":"stop"}}]}}"#
-        );
         let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response_body}",
+            "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response_body}",
             response_body.len()
         );
         stream
@@ -1002,6 +1002,17 @@ fn start_openai_compatible_server(
     });
 
     (base_url, receiver, handle)
+}
+
+fn provider_response_body(provider_content: &str) -> String {
+    let escaped_content = provider_content
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\r', "\\r")
+        .replace('\n', "\\n");
+    format!(
+        r#"{{"choices":[{{"message":{{"content":"{escaped_content}"}},"finish_reason":"stop"}}]}}"#
+    )
 }
 
 fn read_http_request(stream: &mut TcpStream) -> String {
@@ -1082,6 +1093,59 @@ fn command_updates_llm_settings_with_validation() {
     let error = settings_update_llm(&runtime, "", "test-key", "model-a", 30)
         .expect_err("invalid settings return command error");
     assert_eq!(error, CommandError::InvalidLlmSettings);
+}
+
+#[test]
+fn command_tests_llm_settings_without_persisting_them() {
+    let runtime = CommandRuntime::in_memory().expect("command runtime opens");
+    let workspace = workspace_open_default(&runtime).expect("workspace opens");
+    let (base_url, captured_request, server) = start_openai_compatible_server(r#"{"ok":true}"#);
+
+    let result = settings_test_llm(&runtime, &base_url, "test-key", "model-a", 5)
+        .expect("provider test succeeds");
+
+    assert_eq!(result.status, "ok");
+    assert_eq!(result.model, "model-a");
+    assert!(result.message.contains("Connection test succeeded"));
+
+    let request_text = captured_request
+        .recv()
+        .expect("server captures provider test request");
+    server.join().expect("mock provider server exits");
+    assert!(request_text.starts_with("POST /v1/chat/completions HTTP/1.1"));
+    assert!(request_text.contains(r#""model":"model-a""#));
+
+    let error = agent_turn_submit(&runtime, &workspace.id, None, "Break this down")
+        .expect_err("testing settings does not unlock or persist the agent provider");
+    assert_eq!(error, CommandError::MissingLlmProviderSettings);
+}
+
+#[test]
+fn command_test_llm_settings_validates_local_config_before_network() {
+    let runtime = CommandRuntime::in_memory().expect("command runtime opens");
+
+    let error = settings_test_llm(&runtime, "", "test-key", "model-a", 5)
+        .expect_err("invalid local config is rejected before provider transport");
+
+    assert_eq!(error, CommandError::InvalidLlmSettings);
+}
+
+#[test]
+fn command_test_llm_settings_maps_provider_failure_to_provider_error() {
+    let runtime = CommandRuntime::in_memory().expect("command runtime opens");
+    let (base_url, captured_request, server) = start_openai_compatible_status_server(
+        "401 Unauthorized",
+        r#"{"error":{"message":"bad key"}}"#.to_string(),
+    );
+
+    let error = settings_test_llm(&runtime, &base_url, "bad-key", "model-a", 5)
+        .expect_err("provider failure is surfaced without saving settings");
+
+    assert_eq!(error, CommandError::Provider);
+    captured_request
+        .recv()
+        .expect("server captures failed provider test request");
+    server.join().expect("mock provider server exits");
 }
 
 #[test]

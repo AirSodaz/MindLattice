@@ -9,7 +9,10 @@ use mindlattice_agent::loop_state::{
 use mindlattice_agent::tools::{
     initial_tool_registry, AgentToolInput, AgentToolOutput, AgentToolRouter,
 };
-use mindlattice_ai::provider::{LlmConfigError, LlmProviderConfig, OpenAiCompatibleProvider};
+use mindlattice_ai::provider::{
+    LlmConfigError, LlmError, LlmProvider, LlmProviderConfig, LlmStructuredRequest,
+    OpenAiCompatibleProvider,
+};
 use mindlattice_core::domain::{
     AgentThread, AgentTurn, AiProposalRecord, AiProposalStatus, AttentionSession,
     AttentionSessionState, CheckIn, ContextProfile, EdgeKind, GraphEdge, GraphNode, MapSnapshot,
@@ -137,6 +140,13 @@ pub enum CommandError {
 pub struct VaultImportFileDto {
     pub filename: String,
     pub content: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LlmProviderTestResult {
+    pub status: String,
+    pub model: String,
+    pub message: String,
 }
 
 impl From<RepositoryError> for CommandError {
@@ -705,6 +715,48 @@ pub fn settings_update_llm(
         .repo
         .upsert_setting("llm.timeout_seconds", &config.timeout_seconds.to_string())?;
     Ok(config)
+}
+
+pub fn settings_test_llm(
+    _runtime: &CommandRuntime,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    timeout_seconds: u64,
+) -> Result<LlmProviderTestResult, CommandError> {
+    let config = LlmProviderConfig {
+        base_url: base_url.to_string(),
+        api_key: api_key.to_string(),
+        model: model.to_string(),
+        timeout_seconds,
+    };
+    config
+        .validate()
+        .map_err(|_error: LlmConfigError| CommandError::InvalidLlmSettings)?;
+    let provider = OpenAiCompatibleProvider::new(config.clone())
+        .map_err(|_error: LlmConfigError| CommandError::InvalidLlmSettings)?;
+
+    provider
+        .complete_structured(LlmStructuredRequest {
+            prompt_version: "settings_test@v1".to_string(),
+            system_prompt: "You are testing provider connectivity for MindLattice.".to_string(),
+            user_prompt: "Return a compact JSON object confirming that the provider is reachable."
+                .to_string(),
+            output_schema: r#"{"type":"object","properties":{"ok":{"type":"boolean"}}}"#
+                .to_string(),
+            timeout_seconds,
+        })
+        .map_err(command_error_from_llm_error)?;
+
+    Ok(LlmProviderTestResult {
+        status: "ok".to_string(),
+        model: config.model,
+        message: "Connection test succeeded.".to_string(),
+    })
+}
+
+fn command_error_from_llm_error(_error: LlmError) -> CommandError {
+    CommandError::Provider
 }
 
 pub fn vault_export(

@@ -1,17 +1,5 @@
-import {
-  Background,
-  Controls,
-  Handle,
-  ReactFlow,
-  ReactFlowProvider,
-  Position,
-  type Node,
-  type NodeProps,
-  type OnNodeDrag,
-} from '@xyflow/react';
-import { Activity, BrainCircuit, Check, CircleDot, Send, X } from 'lucide-react';
+import type { Node, OnNodeDrag } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import '@xyflow/react/dist/style.css';
 import { SettingsPanel } from '../features/settings/SettingsPanel';
 import {
   acceptActivePreview,
@@ -34,6 +22,7 @@ import {
   rejectActivePreview,
   saveCustomSupportTemplate,
   saveLlmSettings,
+  testLlmSettings,
   saveOnboardingProfile,
   reviseActivePreview,
   saveSelectedNodeDetails,
@@ -45,23 +34,32 @@ import {
   submitAgentMessage,
   type WorkbenchScreenState,
 } from '../features/workbench/workbenchController';
+import { AdvancedMapPanel } from '../features/workbench/components/AdvancedMapPanel';
+import { AgentPanel } from '../features/workbench/components/AgentPanel';
+import { EmptyContextPanel } from '../features/workbench/components/EmptyContextPanel';
+import { PreviewReviewPanel } from '../features/workbench/components/PreviewReviewPanel';
+import { ProviderSetupPanel } from '../features/workbench/components/ProviderSetupPanel';
+import { StartPanel } from '../features/workbench/components/StartPanel';
+import { TurnCanvasPanel } from '../features/workbench/components/TurnCanvasPanel';
+import { TurnContextPane } from '../features/workbench/components/TurnContextPane';
+import { WorkbenchTaskPanels } from '../features/workbench/components/WorkbenchTaskPanels';
+import type { WorkbenchFlowNodeData } from '../features/workbench/components/WorkbenchFlow';
 import {
   buildInitialWorkbench,
   buildStartModeView,
   buildStartTimerState,
-  drawerTitle,
   enterStartMode,
   followUpPromptOptions,
   getSelectedNode,
   leaveStartMode,
   percentFromReactFlowPosition,
   presentCommandError,
-  previewWriteSummary,
   reactFlowElementsFromWorkbench,
   resolveTheme,
   resolveWorkbenchShortcut,
+  selectRightPaneMode,
   type ThemePreference,
-  type WorkbenchDrawer,
+  type WorkbenchTaskPanel,
   type WorkbenchNodeKind,
 } from '../features/workbench/workbenchModel';
 import { buildSettingsSections } from '../features/settings/settingsModel';
@@ -108,53 +106,10 @@ const supportCategoryOptions: Array<{ value: CommandSupportCategory; label: stri
 
 const flowCanvasSize = { width: 1000, height: 700 };
 
-type WorkbenchFlowNodeData = {
-  kind: WorkbenchNodeKind;
-  title: string;
-  status: string;
-};
-
-function WorkbenchFlowNode({ data, selected }: NodeProps<Node<WorkbenchFlowNodeData, 'workbenchNode'>>) {
-  return (
-    <div className={`map-node node-${data.kind} ${selected ? 'is-selected' : ''}`}>
-      <Handle position={Position.Top} type="target" />
-      <span>{data.status === 'Draft' ? `Draft ${data.kind.replace('_', ' ')}` : data.kind.replace('_', ' ')}</span>
-      {data.title}
-      <Handle position={Position.Bottom} type="source" />
-    </div>
-  );
-}
-
-const nodeTypes = {
-  workbenchNode: WorkbenchFlowNode,
-};
-
-function CheckInHistory({ checkIns }: { checkIns: WorkbenchScreenState['checkIns'] }) {
-  return (
-    <div className="check-in-history" aria-label="Saved check-ins">
-      <div>
-        <span className="eyebrow">Check-in history</span>
-        <h3>Saved follow-ups</h3>
-      </div>
-      {checkIns.length === 0 ? (
-        <p>No check-ins saved yet.</p>
-      ) : (
-        <ul>
-          {[...checkIns].reverse().map((checkIn) => (
-            <li key={checkIn.id}>
-              <p>{checkIn.body}</p>
-              <span>{checkIn.nodeId ? 'Linked to current map item' : 'Workspace note'}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 export function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>('system');
-  const [activeDrawer, setActiveDrawer] = useState<WorkbenchDrawer>(null);
+  const [requestedPane, setRequestedPane] = useState<'setup' | 'advanced_map' | 'start' | null>(null);
+  const [activeTaskPanel, setActiveTaskPanel] = useState<WorkbenchTaskPanel>(null);
   const [screenState, setScreenState] = useState<WorkbenchScreenState>(() => ({
     workspaceId: '',
     contextProfile: {
@@ -172,6 +127,8 @@ export function App() {
     strategyExperiments: [],
     pendingStrategyExperiments: [],
     pendingVaultImport: null,
+    providerTestResult: null,
+    providerTestedSettings: null,
     attentionSession: null,
     lastError: null,
     workbench: {
@@ -192,6 +149,7 @@ export function App() {
   const [llmModel, setLlmModel] = useState('');
   const [llmTimeoutSeconds, setLlmTimeoutSeconds] = useState(30);
   const [isLlmSaving, setIsLlmSaving] = useState(false);
+  const [isLlmTesting, setIsLlmTesting] = useState(false);
   const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
   const [isAgentBusy, setIsAgentBusy] = useState(false);
   const [isNodeSaving, setIsNodeSaving] = useState(false);
@@ -250,7 +208,6 @@ export function App() {
     () => workbench.nodes.filter((node) => node.kind === 'support'),
     [workbench.nodes],
   );
-  const previewSummary = previewWriteSummary(workbench.activePreview);
   const startModeView = useMemo(() => buildStartModeView(workbench), [workbench]);
   const hasStartableAction = workbench.nodes.some((node) => node.kind === 'next_action');
   const isStartModeFocused = workbench.viewMode === 'start';
@@ -263,6 +220,17 @@ export function App() {
     () => reactFlowElementsFromWorkbench(workbench, flowCanvasSize),
     [workbench],
   );
+  const rightPaneMode = selectRightPaneMode({
+    providerSetupRequired: !isLlmConfigured,
+    setupRequested: requestedPane === 'setup' || !isLlmConfigured,
+    safetyRedirectActive: false,
+    activePreview: workbench.activePreview,
+    viewMode: workbench.viewMode,
+    hasGraphContext: workbench.nodes.length > 0,
+    advancedMapRequested: requestedPane === 'advanced_map',
+    startRequested: requestedPane === 'start',
+    taskPanel: activeTaskPanel,
+  });
 
   const handleSaveSelectedNode = useCallback(async () => {
     if (isNodeSaving || !selectedNode) {
@@ -453,7 +421,8 @@ export function App() {
         void handleSaveSelectedNode();
         return;
       }
-      setActiveDrawer(null);
+      setRequestedPane(null);
+      setActiveTaskPanel(null);
       setScreenState((current) => ({
         ...current,
         workbench: enterStartMode(current.workbench),
@@ -466,78 +435,76 @@ export function App() {
     };
   }, [handleSaveSelectedNode]);
 
+  const clearProviderTestResult = useCallback(() => {
+    setScreenState((current) =>
+      current.providerTestResult || current.providerTestedSettings
+        ? { ...current, providerTestResult: null, providerTestedSettings: null }
+        : current,
+    );
+  }, []);
+  const handleLlmBaseUrlChange = useCallback(
+    (value: string) => {
+      setLlmBaseUrl(value);
+      clearProviderTestResult();
+    },
+    [clearProviderTestResult],
+  );
+  const handleLlmApiKeyChange = useCallback(
+    (value: string) => {
+      setLlmApiKey(value);
+      clearProviderTestResult();
+    },
+    [clearProviderTestResult],
+  );
+  const handleLlmModelChange = useCallback(
+    (value: string) => {
+      setLlmModel(value);
+      clearProviderTestResult();
+    },
+    [clearProviderTestResult],
+  );
+  const handleLlmTimeoutSecondsChange = useCallback(
+    (value: number) => {
+      setLlmTimeoutSeconds(value);
+      clearProviderTestResult();
+    },
+    [clearProviderTestResult],
+  );
+
   return (
     <main className={`app-shell ${isStartModeFocused ? 'is-start-mode' : ''}`} data-theme={resolvedTheme}>
-      <aside className="agent-panel" aria-label="Conversational execution agent">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">MindLattice</span>
-            <h1>Execution agent</h1>
-          </div>
-          <BrainCircuit aria-hidden="true" size={22} />
-        </div>
-
-        <div className="message-list" aria-label="Agent thread">
-          {workbench.messages.map((message) => (
-            <article className={`message message-${message.sender}`} key={message.id}>
-              <span>{message.sender === 'agent' ? 'Agent' : 'You'}</span>
-              <p>{message.body}</p>
-            </article>
-          ))}
-        </div>
-
-        <form
-          className="composer"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (isAgentBusy) {
-              return;
-            }
-            setIsAgentBusy(true);
-            try {
-              const nextState = workbench.activePreview
-                ? await reviseActivePreview(commandClient, screenState, composerValue)
-                : await submitAgentMessage(commandClient, screenState, composerValue);
-              setScreenState({ ...nextState, lastError: null });
-              setComposerValue('');
-            } catch (error) {
-              setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
-            } finally {
-              setIsAgentBusy(false);
-            }
-          }}
-        >
-          <textarea
-            aria-label="Message the execution agent"
-            disabled={isAgentBusy || !screenState.workspaceId}
-            onChange={(event) => setComposerValue(event.target.value)}
-            placeholder={
-              isLlmConfigured
-                ? 'Describe what feels messy or ask for a smaller next action.'
-                : 'Name one task to make visible. Agent setup can wait.'
-            }
-            ref={composerInputRef}
-            value={composerValue}
-          />
-          <button
-            aria-label="Send message"
-            disabled={isAgentBusy || !screenState.workspaceId || !composerValue.trim()}
-            type="submit"
-          >
-            <Send aria-hidden="true" size={18} />
-          </button>
-        </form>
-
-        {!isLlmConfigured ? (
-          <div className="agent-setup-card">
-            <span className="eyebrow">Agent setup</span>
-            <p>Without an LLM provider, this input creates plain tasks. Configure the provider when you want agent-drafted previews.</p>
-            <button onClick={() => setActiveDrawer('settings')} type="button">
-              Open settings
-            </button>
-          </div>
-        ) : null}
-      </aside>
+      <AgentPanel
+        composerInputRef={composerInputRef}
+        composerValue={composerValue}
+        isAgentBusy={isAgentBusy}
+        isLlmConfigured={isLlmConfigured}
+        onComposerChange={setComposerValue}
+        onConfigureLlm={() => {
+          setRequestedPane('setup');
+          setActiveTaskPanel(null);
+        }}
+        onSubmit={async () => {
+          if (isAgentBusy) {
+            return;
+          }
+          setIsAgentBusy(true);
+          try {
+            const nextState = workbench.activePreview
+              ? await reviseActivePreview(commandClient, screenState, composerValue)
+              : await submitAgentMessage(commandClient, screenState, composerValue);
+            setScreenState({ ...nextState, lastError: null });
+            setComposerValue('');
+            setRequestedPane(null);
+            setActiveTaskPanel(null);
+          } catch (error) {
+            setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
+          } finally {
+            setIsAgentBusy(false);
+          }
+        }}
+        workbench={workbench}
+        workspaceReady={Boolean(screenState.workspaceId)}
+      />
 
       {screenState.lastError ? (
         <div className="error-notice" role="alert">
@@ -547,905 +514,378 @@ export function App() {
       ) : null}
 
       {!isStartModeFocused ? (
-      <section className="map-workspace" aria-label="Star-map canvas">
-        <header className="workspace-toolbar">
-          <div>
-            <span className="eyebrow">Star-map canvas</span>
-            <h2>{workbench.focusTaskTitle}</h2>
-          </div>
-          <div className="workspace-actions" aria-label="Workspace tools">
-            <button
-              className={workbench.activePreview ? 'has-preview' : ''}
-              disabled={!workbench.activePreview}
-              onClick={() => setActiveDrawer('preview')}
-              type="button"
-            >
-              Preview
-            </button>
-            <button
-              disabled={!selectedNode}
-              onClick={() => setActiveDrawer('inspector')}
-              type="button"
-            >
-              Node
-            </button>
-            <button disabled={!hasStartableAction} onClick={() => setActiveDrawer('start')} type="button">
-              Start
-            </button>
-            <button onClick={() => setActiveDrawer('support')} type="button">
-              Support
-            </button>
-            <button onClick={() => setActiveDrawer('memory')} type="button">
-              Memory
-            </button>
-            <button onClick={() => setActiveDrawer('vault')} type="button">
-              Vault
-            </button>
-            <button onClick={() => setActiveDrawer('settings')} type="button">
-              Settings
-            </button>
-          </div>
-        </header>
-
-        <section className="focus-summary" aria-label="Current focus summary">
-          <div>
-            <span className="eyebrow">Current focus</span>
-            <h3>{selectedNode?.title ?? workbench.focusTaskTitle}</h3>
-          </div>
-          <dl>
-            <div>
-              <dt>Next action</dt>
-              <dd>{startModeView.nextAction}</dd>
-            </div>
-            <div>
-              <dt>Minimum done</dt>
-              <dd>{startModeView.minimumDone}</dd>
-            </div>
-          </dl>
-        </section>
-
-        {workbench.activePreview ? (
-          <button className="preview-chip" onClick={() => setActiveDrawer('preview')} type="button">
-            <CircleDot aria-hidden="true" size={16} />
-            Active preview ready for review
-          </button>
-        ) : null}
-
-        <div className="canvas-plane">
-          <ReactFlowProvider>
-            <ReactFlow
-              colorMode={resolvedTheme}
-              edges={flowElements.edges}
-              fitView
-              minZoom={0.6}
-              nodeTypes={nodeTypes}
-              nodes={flowElements.nodes}
-              nodesDraggable
-              onNodeClick={(_event, node) => {
+        <TurnContextPane
+          advancedMap={
+            <AdvancedMapPanel
+              edgeKind={edgeKind}
+              edgeKindOptions={edgeKindOptions}
+              edgeSourceId={edgeSourceId}
+              edgeTargetId={edgeTargetId}
+              edges={workbench.edges}
+              isEdgeSaving={isEdgeSaving}
+              isNodeSaving={isNodeSaving}
+              newNodeKind={newNodeKind}
+              newNodeTitle={newNodeTitle}
+              nodeBodyDraft={nodeBodyDraft}
+              nodeTitleDraft={nodeTitleDraft}
+              nodes={workbench.nodes}
+              onAddConnectedNode={async () => {
+                setIsNodeSaving(true);
+                try {
+                  setScreenState(await addConnectedNode(commandClient, screenState, newNodeKind, newNodeTitle));
+                  setNewNodeTitle('');
+                } finally {
+                  setIsNodeSaving(false);
+                }
+              }}
+              onConnectNodes={async () => {
+                setIsEdgeSaving(true);
+                try {
+                  setScreenState(await connectExistingNodes(commandClient, screenState, edgeSourceId, edgeTargetId, edgeKind));
+                } finally {
+                  setIsEdgeSaving(false);
+                }
+              }}
+              onEdgeKindChange={setEdgeKind}
+              onEdgeSourceIdChange={setEdgeSourceId}
+              onEdgeTargetIdChange={setEdgeTargetId}
+              onNewNodeKindChange={setNewNodeKind}
+              onNewNodeTitleChange={setNewNodeTitle}
+              onNodeBodyDraftChange={setNodeBodyDraft}
+              onNodeTitleDraftChange={setNodeTitleDraft}
+              onSaveSelectedNode={handleSaveSelectedNode}
+              selectedNode={selectedNode}
+              surroundingNodeOptions={surroundingNodeOptions}
+            />
+          }
+          canvas={
+            <TurnCanvasPanel
+              elements={flowElements}
+              focusTaskTitle={workbench.focusTaskTitle}
+              hasActivePreview={Boolean(workbench.activePreview)}
+              onNodeClick={(nodeId) => {
                 setScreenState((current) => ({
                   ...current,
-                  workbench: { ...current.workbench, selectedNodeId: node.id },
+                  workbench: { ...current.workbench, selectedNodeId: nodeId },
                 }));
-                setActiveDrawer('inspector');
+                setRequestedPane('advanced_map');
+                setActiveTaskPanel(null);
               }}
               onNodeDragStop={handleNodeDragStop}
-              panOnScroll
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background gap={42} />
-              <Controls showInteractive={false} />
-            </ReactFlow>
-          </ReactFlowProvider>
-        </div>
-      </section>
-      ) : null}
-
-      {!isStartModeFocused && activeDrawer ? (
-      <aside className="context-drawer" aria-label="Context drawer">
-        <header className="drawer-header">
-          <div>
-            <span className="eyebrow">Context</span>
-            <h2>{drawerTitle(activeDrawer)}</h2>
-          </div>
-          <button className="secondary" onClick={() => setActiveDrawer(null)} type="button">
-            Close
-          </button>
-        </header>
-        {activeDrawer === 'preview' ? (
-        <section className="preview-surface">
-          <div className="panel-heading compact">
-            <div>
-              <span className="eyebrow">Agent preview</span>
-              <h2>Review before saving</h2>
-            </div>
-            <CircleDot aria-hidden="true" size={18} />
-          </div>
-          <p>{previewSummary}</p>
-          <div className="action-row">
-            <button
-              disabled={!workbench.activePreview}
-              onClick={async () => {
+              onOpenAdvancedMap={() => {
+                setRequestedPane('advanced_map');
+                setActiveTaskPanel(null);
+              }}
+              onOpenPreview={() => {
+                setRequestedPane(null);
+                setActiveTaskPanel(null);
+              }}
+              onOpenStart={() => {
+                setRequestedPane('start');
+                setActiveTaskPanel(null);
+              }}
+              onOpenTaskPanel={(panel) => {
+                setRequestedPane(null);
+                setActiveTaskPanel(panel);
+              }}
+              resolvedTheme={resolvedTheme}
+              selectedNode={selectedNode}
+              startModeView={startModeView}
+              workbench={workbench}
+            />
+          }
+          empty={<EmptyContextPanel isLlmConfigured={isLlmConfigured} onConfigureLlm={() => setRequestedPane('setup')} />}
+          mode={rightPaneMode}
+          onBackToCanvas={() => {
+            setRequestedPane(null);
+            setActiveTaskPanel(null);
+          }}
+          preview={
+            <PreviewReviewPanel
+              activePreview={workbench.activePreview}
+              onAccept={async () => {
                 setScreenState(await acceptActivePreview(commandClient, screenState));
-                setActiveDrawer(null);
+                setRequestedPane(null);
               }}
-              type="button"
-            >
-              <Check aria-hidden="true" size={16} />
-              Accept
-            </button>
-            <button
-              className="secondary"
-              disabled={!workbench.activePreview}
-              onClick={async () => {
+              onReject={async () => {
                 setScreenState(await rejectActivePreview(commandClient, screenState));
-                setActiveDrawer(null);
+                setRequestedPane(null);
               }}
-              type="button"
-            >
-              <X aria-hidden="true" size={16} />
-              Reject
-            </button>
-          </div>
-        </section>
-        ) : null}
-
-        {activeDrawer === 'inspector' ? (
-        <section className="inspector-surface">
-          <span className="eyebrow">Selected node</span>
-          <h2>{selectedNode?.title ?? 'No selection'}</h2>
-          <form
-            className="node-editor"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              await handleSaveSelectedNode();
-            }}
-          >
-            <label>
-              Title
-              <input
-                disabled={!selectedNode || isNodeSaving}
-                onChange={(event) => setNodeTitleDraft(event.target.value)}
-                value={nodeTitleDraft}
-              />
-            </label>
-            <label>
-              Body
-              <textarea
-                disabled={!selectedNode || isNodeSaving}
-                onChange={(event) => setNodeBodyDraft(event.target.value)}
-                value={nodeBodyDraft}
-              />
-            </label>
-            <button disabled={!selectedNode || isNodeSaving || !nodeTitleDraft.trim()} type="submit">
-              Save node
-            </button>
-          </form>
-          <form
-            className="node-editor compact"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (isNodeSaving || !selectedNode || !newNodeTitle.trim()) {
-                return;
-              }
-              setIsNodeSaving(true);
-              try {
-                setScreenState(await addConnectedNode(commandClient, screenState, newNodeKind, newNodeTitle));
-                setNewNodeTitle('');
-              } finally {
-                setIsNodeSaving(false);
-              }
-            }}
-          >
-            <label>
-              Add nearby
-              <select
-                disabled={!selectedNode || isNodeSaving}
-                onChange={(event) => setNewNodeKind(event.target.value as WorkbenchNodeKind)}
-                value={newNodeKind}
-              >
-                {surroundingNodeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Title
-              <input
-                disabled={!selectedNode || isNodeSaving}
-                onChange={(event) => setNewNodeTitle(event.target.value)}
-                placeholder="Name the nearby node"
-                value={newNodeTitle}
-              />
-            </label>
-            <button disabled={!selectedNode || isNodeSaving || !newNodeTitle.trim()} type="submit">
-              Add node
-            </button>
-          </form>
-          <form
-            className="node-editor compact"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (isEdgeSaving || !edgeSourceId || !edgeTargetId || edgeSourceId === edgeTargetId) {
-                return;
-              }
-              setIsEdgeSaving(true);
-              try {
-                setScreenState(await connectExistingNodes(commandClient, screenState, edgeSourceId, edgeTargetId, edgeKind));
-              } finally {
-                setIsEdgeSaving(false);
-              }
-            }}
-          >
-            <label>
-              Connect from
-              <select
-                disabled={isEdgeSaving || workbench.nodes.length < 2}
-                onChange={(event) => setEdgeSourceId(event.target.value)}
-                value={edgeSourceId}
-              >
-                {workbench.nodes.map((node) => (
-                  <option key={node.id} value={node.id}>
-                    {node.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Connect to
-              <select
-                disabled={isEdgeSaving || workbench.nodes.length < 2}
-                onChange={(event) => setEdgeTargetId(event.target.value)}
-                value={edgeTargetId}
-              >
-                {workbench.nodes.map((node) => (
-                  <option key={node.id} value={node.id}>
-                    {node.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Relationship
-              <select disabled={isEdgeSaving} onChange={(event) => setEdgeKind(event.target.value)} value={edgeKind}>
-                {edgeKindOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              disabled={isEdgeSaving || workbench.nodes.length < 2 || !edgeSourceId || !edgeTargetId || edgeSourceId === edgeTargetId}
-              type="submit"
-            >
-              Connect nodes
-            </button>
-          </form>
-          {workbench.edges.length > 0 ? (
-            <div className="edge-list" aria-label="Current connections">
-              {workbench.edges.map((edge) => {
-                const source = workbench.nodes.find((node) => node.id === edge.sourceId);
-                const target = workbench.nodes.find((node) => node.id === edge.targetId);
-                return (
-                  <p key={edge.id}>
-                    <span>{edge.kind.replaceAll('_', ' ')}</span>
-                    {source?.title ?? edge.sourceId}
-                    {' -> '}
-                    {target?.title ?? edge.targetId}
-                  </p>
-                );
-              })}
-            </div>
-          ) : null}
-          <dl>
-            <div>
-              <dt>Status</dt>
-              <dd>{selectedNode?.status ?? 'Draft'}</dd>
-            </div>
-            <div>
-              <dt>Minimum done</dt>
-              <dd>{selectedNode?.minimumDone ?? 'Define the smallest visible finish line.'}</dd>
-            </div>
-            <div>
-              <dt>Estimate</dt>
-              <dd>{selectedNode?.estimateMinutes ? `${selectedNode.estimateMinutes} min` : 'Unset'}</dd>
-            </div>
-          </dl>
-        </section>
-        ) : null}
-
-        {activeDrawer === 'settings' ? (
-        <SettingsPanel
-          adultContextOptions={adultContextOptions}
-          executionDifficultyOptions={executionDifficultyOptions}
-          isLlmSaving={isLlmSaving}
-          isOnboardingSaving={isOnboardingSaving}
-          llmApiKey={llmApiKey}
-          llmBaseUrl={llmBaseUrl}
-          llmModel={llmModel}
-          llmTimeoutSeconds={llmTimeoutSeconds}
-          onboardingContexts={onboardingContexts}
-          onboardingDifficulties={onboardingDifficulties}
-          onboardingSupportCategories={onboardingSupportCategories}
-          onLlmApiKeyChange={setLlmApiKey}
-          onLlmBaseUrlChange={setLlmBaseUrl}
-          onLlmModelChange={setLlmModel}
-          onLlmTimeoutSecondsChange={setLlmTimeoutSeconds}
-          onOnboardingContextsChange={setOnboardingContexts}
-          onOnboardingDifficultiesChange={setOnboardingDifficulties}
-          onOnboardingSupportCategoriesChange={setOnboardingSupportCategories}
-          onSaveLlmSettings={async () => {
-            if (isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
-              return;
-            }
-            setIsLlmSaving(true);
-            try {
-              setScreenState(
-                await saveLlmSettings(
-                  commandClient,
-                  screenState,
-                  llmBaseUrl,
-                  llmApiKey,
-                  llmModel,
-                  llmTimeoutSeconds,
-                ),
-              );
-            } catch (error) {
-              setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
-            } finally {
-              setIsLlmSaving(false);
-            }
-          }}
-          onSaveOnboardingProfile={async () => {
-            if (isOnboardingSaving) {
-              return;
-            }
-            setIsOnboardingSaving(true);
-            try {
-              setScreenState(
-                await saveOnboardingProfile(
-                  commandClient,
-                  screenState,
-                  onboardingContexts,
-                  onboardingDifficulties,
-                  onboardingSupportCategories,
-                ),
-              );
-            } catch (error) {
-              setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
-            } finally {
-              setIsOnboardingSaving(false);
-            }
-          }}
-          onThemePreferenceChange={setThemePreference}
-          profile={screenState.contextProfile}
-          settingsSections={settingsSections}
-          supportCategoryOptions={supportCategoryOptions}
-          themeOptions={themeOptions}
-          themePreference={themePreference}
-        />
-        ) : null}
-
-        {activeDrawer === 'support' ? (
-        <section className="support-surface">
-          <div>
-            <span className="eyebrow">Support templates</span>
-            <h2>Try one support</h2>
-          </div>
-          <div className="support-list">
-            {supportTemplates.slice(0, 3).map((template) => (
-              <article className="support-template" key={template.id}>
-                <div>
-                  <span>{template.category.replaceAll('_', ' ')}</span>
-                  <h3>{template.title}</h3>
-                </div>
-                <p>{template.steps[0]}</p>
-                <button
-                  disabled={isSupportAdopting || !screenState.workspaceId}
-                  onClick={async () => {
-                    setIsSupportAdopting(true);
-                    try {
-                      setScreenState(await adoptSupportTemplate(commandClient, screenState, template.id));
-                    } finally {
-                      setIsSupportAdopting(false);
-                    }
-                  }}
-                  type="button"
-                >
-                  Adopt
-                </button>
-              </article>
-            ))}
-          </div>
-          <div className="adopted-supports">
-            <div>
-              <span className="eyebrow">Adopted supports</span>
-              <h3>Keep or adjust</h3>
-            </div>
-            {adoptedSupports.length === 0 ? (
-              <p>No adopted support yet.</p>
-            ) : (
-              adoptedSupports.map((support) => {
-                const draft = supportDrafts[support.id] ?? { title: support.title, body: support.body ?? '' };
-                return (
-                  <form
-                    className="support-editor"
-                    key={support.id}
-                    onSubmit={async (event) => {
-                      event.preventDefault();
-                      if (isSupportSaving || !draft.title.trim()) {
-                        return;
-                      }
-                      setIsSupportSaving(true);
-                      try {
-                        setScreenState(
-                          await updateSupportNode(commandClient, screenState, support.id, draft.title, draft.body),
-                        );
-                      } finally {
-                        setIsSupportSaving(false);
-                      }
-                    }}
-                  >
-                    <label>
-                      Title
-                      <input
-                        disabled={isSupportSaving}
-                        onChange={(event) =>
-                          setSupportDrafts((current) => ({
-                            ...current,
-                            [support.id]: {
-                              title: event.target.value,
-                              body: current[support.id]?.body ?? support.body ?? '',
-                            },
-                          }))
-                        }
-                        value={draft.title}
-                      />
-                    </label>
-                    <label>
-                      Notes
-                      <textarea
-                        disabled={isSupportSaving}
-                        onChange={(event) =>
-                          setSupportDrafts((current) => ({
-                            ...current,
-                            [support.id]: {
-                              title: current[support.id]?.title ?? support.title,
-                              body: event.target.value,
-                            },
-                          }))
-                        }
-                        value={draft.body}
-                      />
-                    </label>
-                    <div className="action-row">
-                      <button disabled={isSupportSaving || !draft.title.trim()} type="submit">
-                        Save
-                      </button>
-                      <button
-                        className="secondary"
-                        disabled={isSupportSaving}
-                        onClick={async () => {
-                          setIsSupportSaving(true);
-                          try {
-                            setScreenState(await discardSupportNode(commandClient, screenState, support.id));
-                          } finally {
-                            setIsSupportSaving(false);
-                          }
-                        }}
-                        type="button"
-                      >
-                        Discard
-                      </button>
-                    </div>
-                  </form>
-                );
-              })
-            )}
-          </div>
-          <form
-            className="custom-support-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (isCustomSupportCreating || !customSupportTitle.trim()) {
-                return;
-              }
-              setIsCustomSupportCreating(true);
-              try {
-                setScreenState(
-                  await createCustomSupportNode(commandClient, screenState, customSupportTitle, customSupportBody),
-                );
-                setCustomSupportTitle('');
-                setCustomSupportBody('');
-              } finally {
-                setIsCustomSupportCreating(false);
-              }
-            }}
-          >
-            <div>
-              <span className="eyebrow">Custom support</span>
-              <h3>Create one support</h3>
-            </div>
-            <label>
-              Title
-              <input
-                disabled={isCustomSupportCreating || !screenState.workspaceId}
-                onChange={(event) => setCustomSupportTitle(event.target.value)}
-                placeholder="Name the support"
-                value={customSupportTitle}
-              />
-            </label>
-            <label>
-              Notes
-              <textarea
-                disabled={isCustomSupportCreating || !screenState.workspaceId}
-                onChange={(event) => setCustomSupportBody(event.target.value)}
-                placeholder="What should stay visible when you try it?"
-                value={customSupportBody}
-              />
-            </label>
-            <div className="action-row">
-              <button
-                disabled={isCustomSupportCreating || !screenState.workspaceId || !customSupportTitle.trim()}
-                type="submit"
-              >
-                Create support
-              </button>
-              <button
-                className="secondary"
-                disabled={isCustomSupportTemplateSaving || !screenState.workspaceId || !customSupportTitle.trim()}
-                onClick={() => {
-                  if (isCustomSupportTemplateSaving || !customSupportTitle.trim()) {
-                    return;
-                  }
-                  setIsCustomSupportTemplateSaving(true);
-                  setScreenState((current) =>
-                    saveCustomSupportTemplate(current, customSupportTitle, customSupportBody),
+            />
+          }
+          setup={
+            <ProviderSetupPanel
+              apiKey={llmApiKey}
+              baseUrl={llmBaseUrl}
+              isSaving={isLlmSaving}
+              isTesting={isLlmTesting}
+              model={llmModel}
+              onApiKeyChange={handleLlmApiKeyChange}
+              onBaseUrlChange={handleLlmBaseUrlChange}
+              onModelChange={handleLlmModelChange}
+              onSave={async () => {
+                if (isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
+                  return;
+                }
+                setIsLlmSaving(true);
+                try {
+                  setScreenState(
+                    await saveLlmSettings(
+                      commandClient,
+                      screenState,
+                      llmBaseUrl,
+                      llmApiKey,
+                      llmModel,
+                      llmTimeoutSeconds,
+                    ),
                   );
+                  setRequestedPane(null);
+                } catch (error) {
+                  setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
+                } finally {
+                  setIsLlmSaving(false);
+                }
+              }}
+              onTest={async () => {
+                if (isLlmTesting || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
+                  return;
+                }
+                setIsLlmTesting(true);
+                try {
+                  setScreenState(
+                    await testLlmSettings(
+                      commandClient,
+                      screenState,
+                      llmBaseUrl,
+                      llmApiKey,
+                      llmModel,
+                      llmTimeoutSeconds,
+                    ),
+                  );
+                } catch (error) {
+                  setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
+                } finally {
+                  setIsLlmTesting(false);
+                }
+              }}
+              onTimeoutSecondsChange={handleLlmTimeoutSecondsChange}
+              testResult={screenState.providerTestResult}
+              timeoutSeconds={llmTimeoutSeconds}
+            />
+          }
+          start={
+            <StartPanel
+              attentionSession={screenState.attentionSession}
+              checkInDraft={checkInDraft}
+              checkIns={screenState.checkIns}
+              followUpPrompts={followUpPrompts}
+              hasStartableAction={hasStartableAction}
+              isCheckInSaving={isCheckInSaving}
+              isSessionBusy={isSessionBusy}
+              onCheckInDraftChange={setCheckInDraft}
+              onCloseSession={async () => {
+                setIsSessionBusy(true);
+                try {
+                  setScreenState(
+                    await closeAttentionSession(
+                      commandClient,
+                      screenState,
+                      new Date().toISOString(),
+                      sessionCompletionNote,
+                    ),
+                  );
+                  setSessionCompletionNote('');
+                } finally {
+                  setIsSessionBusy(false);
+                }
+              }}
+              onEnterFocusMode={() => {
+                setRequestedPane(null);
+                setActiveTaskPanel(null);
+                setScreenState((current) => ({
+                  ...current,
+                  workbench: enterStartMode(current.workbench),
+                }));
+              }}
+              onSaveCheckIn={async () => {
+                setIsCheckInSaving(true);
+                try {
+                  setScreenState(await createCheckIn(commandClient, screenState, checkInDraft));
+                  setCheckInDraft('');
+                } finally {
+                  setIsCheckInSaving(false);
+                }
+              }}
+              onSessionCompletionNoteChange={setSessionCompletionNote}
+              onStartSession={handleStartAttentionSession}
+              sessionCompletionNote={sessionCompletionNote}
+              startModeView={startModeView}
+              startTimerState={startTimerState}
+              workspaceReady={Boolean(screenState.workspaceId)}
+            />
+          }
+          taskPanel={activeTaskPanel}
+          taskPanels={
+            <WorkbenchTaskPanels
+              activePanel={activeTaskPanel}
+              adoptedSupports={adoptedSupports}
+              customSupportBody={customSupportBody}
+              customSupportTitle={customSupportTitle}
+              experimentContext={experimentContext}
+              experimentDecision={experimentDecision}
+              experimentHelped={experimentHelped}
+              experimentObstacle={experimentObstacle}
+              experimentSupportId={experimentSupportId}
+              isCustomSupportCreating={isCustomSupportCreating}
+              isCustomSupportTemplateSaving={isCustomSupportTemplateSaving}
+              isExperimentSaving={isExperimentSaving}
+              isMemorySaving={isMemorySaving}
+              isSupportAdopting={isSupportAdopting}
+              isSupportSaving={isSupportSaving}
+              isVaultBusy={isVaultBusy}
+              memoryDrafts={memoryDrafts}
+              onAcceptMemoryProposal={async (memoryId, text) => {
+                setIsMemorySaving(true);
+                try {
+                  setScreenState(await acceptPreferenceMemoryProposal(commandClient, screenState, memoryId, text));
+                } finally {
+                  setIsMemorySaving(false);
+                }
+              }}
+              onAcceptStrategyExperiment={async (experimentId) => {
+                setIsExperimentSaving(true);
+                try {
+                  setScreenState(await acceptStrategyExperimentProposal(commandClient, screenState, experimentId));
+                } finally {
+                  setIsExperimentSaving(false);
+                }
+              }}
+              onAcceptVaultImport={async () => {
+                setIsVaultBusy(true);
+                try {
+                  setScreenState(await acceptVaultImportPreview(commandClient, screenState));
+                  setVaultImportContent('');
+                } catch (error) {
+                  setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
+                } finally {
+                  setIsVaultBusy(false);
+                }
+              }}
+              onAdoptSupportTemplate={async (templateId) => {
+                setIsSupportAdopting(true);
+                try {
+                  setScreenState(await adoptSupportTemplate(commandClient, screenState, templateId));
+                } finally {
+                  setIsSupportAdopting(false);
+                }
+              }}
+              onCreateCustomSupport={async () => {
+                setIsCustomSupportCreating(true);
+                try {
+                  setScreenState(await createCustomSupportNode(commandClient, screenState, customSupportTitle, customSupportBody));
                   setCustomSupportTitle('');
                   setCustomSupportBody('');
-                  setIsCustomSupportTemplateSaving(false);
-                }}
-                type="button"
-              >
-                Save template
-              </button>
-            </div>
-          </form>
-          <form
-            className="strategy-experiment-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (isExperimentSaving || !experimentSupportId) {
-                return;
-              }
-              setIsExperimentSaving(true);
-              try {
-                setScreenState(
-                  draftStrategyExperiment(screenState, {
-                    supportTemplateId: experimentSupportId,
+                } finally {
+                  setIsCustomSupportCreating(false);
+                }
+              }}
+              onCustomSupportBodyChange={setCustomSupportBody}
+              onCustomSupportTitleChange={setCustomSupportTitle}
+              onDeleteMemory={async (memoryId) => {
+                setIsMemorySaving(true);
+                try {
+                  setScreenState(await deletePreferenceMemory(commandClient, screenState, memoryId));
+                } finally {
+                  setIsMemorySaving(false);
+                }
+              }}
+              onDiscardSupport={async (supportId) => {
+                setIsSupportSaving(true);
+                try {
+                  setScreenState(await discardSupportNode(commandClient, screenState, supportId));
+                } finally {
+                  setIsSupportSaving(false);
+                }
+              }}
+              onExperimentContextChange={setExperimentContext}
+              onExperimentDecisionChange={setExperimentDecision}
+              onExperimentHelpedChange={(key, value) => {
+                setExperimentHelped((current) => ({ ...current, [key]: value }));
+              }}
+              onExperimentObstacleChange={setExperimentObstacle}
+              onExperimentSupportIdChange={setExperimentSupportId}
+              onMemoryDraftChange={(memoryId, value) => {
+                setMemoryDrafts((current) => ({ ...current, [memoryId]: value }));
+              }}
+              onPendingMemoryDraftChange={(memoryId, value) => {
+                setPendingMemoryDrafts((current) => ({ ...current, [memoryId]: value }));
+              }}
+              onPreviewStrategyExperiment={() => {
+                setScreenState((current) =>
+                  draftStrategyExperiment(current, {
+                    supportTemplateId: experimentSupportId || null,
                     customSupportTitle: null,
                     context: experimentContext,
                     helpedStart: experimentHelped.start,
                     helpedContinue: experimentHelped.continue,
                     helpedReturn: experimentHelped.return,
                     helpedClarifyNextAction: experimentHelped.clarify,
-                    obstacleNote: experimentObstacle.trim() ? experimentObstacle.trim() : null,
+                    obstacleNote: experimentObstacle,
                     nextDecision: experimentDecision,
                   }),
                 );
-                setExperimentObstacle('');
-              } finally {
-                setIsExperimentSaving(false);
-              }
-            }}
-          >
-            <div>
-              <span className="eyebrow">Strategy experiment</span>
-              <h3>Record what helped</h3>
-            </div>
-            <label>
-              Support tried
-              <select
-                disabled={isExperimentSaving || supportTemplates.length === 0}
-                onChange={(event) => setExperimentSupportId(event.target.value)}
-                value={experimentSupportId}
-              >
-                {supportTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Context
-              <select
-                disabled={isExperimentSaving}
-                onChange={(event) => setExperimentContext(event.target.value as CommandExperimentContext)}
-                value={experimentContext}
-              >
-                <option value="work">Work</option>
-                <option value="study">Study</option>
-                <option value="home_responsibility">Home responsibility</option>
-                <option value="personal_project">Personal project</option>
-                <option value="custom">Custom</option>
-              </select>
-            </label>
-            <fieldset>
-              <legend>Helped with</legend>
-              {[
-                ['start', 'Starting'],
-                ['continue', 'Continuing'],
-                ['return', 'Returning'],
-                ['clarify', 'Clarifying next action'],
-              ].map(([key, label]) => (
-                <label key={key}>
-                  <input
-                    checked={experimentHelped[key as keyof typeof experimentHelped]}
-                    disabled={isExperimentSaving}
-                    onChange={(event) =>
-                      setExperimentHelped((current) => ({
-                        ...current,
-                        [key]: event.target.checked,
-                      }))
-                    }
-                    type="checkbox"
-                  />
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-            <label>
-              What got in the way
-              <textarea
-                disabled={isExperimentSaving}
-                onChange={(event) => setExperimentObstacle(event.target.value)}
-                placeholder="Optional obstacle or adjustment note"
-                value={experimentObstacle}
-              />
-            </label>
-            <label>
-              Next decision
-              <select
-                disabled={isExperimentSaving}
-                onChange={(event) => setExperimentDecision(event.target.value as CommandStrategyDecision)}
-                value={experimentDecision}
-              >
-                <option value="keep">Keep</option>
-                <option value="revise">Revise</option>
-                <option value="pause">Pause</option>
-                <option value="remove">Remove</option>
-              </select>
-            </label>
-            <button disabled={isExperimentSaving || !experimentSupportId} type="submit">
-              Review experiment
-            </button>
-          </form>
-          {screenState.pendingStrategyExperiments.length > 0 ? (
-            <div className="strategy-proposal-list" aria-label="Pending strategy experiment proposals">
-              {screenState.pendingStrategyExperiments.map((experiment) => {
-                const supportLabel = experiment.supportTemplateId ?? experiment.customSupportTitle ?? 'custom support';
-                return (
-                  <article className="strategy-proposal" key={experiment.id}>
-                    <div>
-                      <span className="eyebrow">Pending experiment</span>
-                      <h3>
-                        {experiment.nextDecision} {supportLabel}
-                      </h3>
-                    </div>
-                    {experiment.obstacleNote ? <p>{experiment.obstacleNote}</p> : null}
-                    <dl>
-                      <div>
-                        <dt>Context</dt>
-                        <dd>{experiment.context.replaceAll('_', ' ')}</dd>
-                      </div>
-                      <div>
-                        <dt>Helped</dt>
-                        <dd>
-                          {[
-                            experiment.helpedStart ? 'start' : null,
-                            experiment.helpedContinue ? 'continue' : null,
-                            experiment.helpedReturn ? 'return' : null,
-                            experiment.helpedClarifyNextAction ? 'clarify' : null,
-                          ]
-                            .filter(Boolean)
-                            .join(', ') || 'Not marked'}
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="action-row">
-                      <button
-                        disabled={isExperimentSaving}
-                        onClick={async () => {
-                          setIsExperimentSaving(true);
-                          try {
-                            setScreenState(
-                              await acceptStrategyExperimentProposal(commandClient, screenState, experiment.id),
-                            );
-                          } finally {
-                            setIsExperimentSaving(false);
-                          }
-                        }}
-                        type="button"
-                      >
-                        Accept experiment
-                      </button>
-                      <button
-                        className="secondary"
-                        disabled={isExperimentSaving}
-                        onClick={() =>
-                          setScreenState((current) => rejectStrategyExperimentProposal(current, experiment.id))
-                        }
-                        type="button"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-        </section>
-        ) : null}
-
-        {activeDrawer === 'start' ? (
-        <section className="start-mode-surface">
-          <div className="start-mode-header">
-            <div>
-              <span className="eyebrow">Start Mode</span>
-              <h2>{startModeView.nextAction}</h2>
-            </div>
-            <button
-              disabled={!hasStartableAction}
-              onClick={() => {
-                setActiveDrawer(null);
-                setScreenState((current) => ({
-                  ...current,
-                  workbench: enterStartMode(current.workbench),
-                }));
               }}
-              type="button"
-            >
-              Enter Start Mode
-            </button>
-          </div>
-          <p>{startModeView.minimumDone}</p>
-          <dl className="start-mode-details">
-            {startModeView.details.map((detail) => (
-              <div key={detail.label}>
-                <dt>{detail.label}</dt>
-                <dd>{detail.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <div className="session-controls">
-            <span>{screenState.attentionSession ? 'Focus session active' : 'Ready to start'}</span>
-            {startTimerState ? (
-              <div className="timer-status" aria-label="Focus timer">
-                <strong>{startTimerState.label}</strong>
-                <span>
-                  {startTimerState.remainingMinutes > 0
-                    ? `${startTimerState.remainingMinutes} min left in this launch`
-                    : 'Launch window is open-ended'}
-                </span>
-              </div>
-            ) : null}
-            {screenState.attentionSession ? (
-              <form
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  if (isSessionBusy) {
-                    return;
-                  }
-                  setIsSessionBusy(true);
-                  try {
-                    setScreenState(
-                      await closeAttentionSession(
-                        commandClient,
-                        screenState,
-                        new Date().toISOString(),
-                        sessionCompletionNote,
-                      ),
-                    );
-                    setSessionCompletionNote('');
-                  } finally {
-                    setIsSessionBusy(false);
-                  }
-                }}
-              >
-                <input
-                  disabled={isSessionBusy}
-                  onChange={(event) => setSessionCompletionNote(event.target.value)}
-                  placeholder="What changed or where to resume?"
-                  value={sessionCompletionNote}
-                />
-                <button disabled={isSessionBusy} type="submit">
-                  Close session
-                </button>
-              </form>
-            ) : (
-              <button
-                disabled={isSessionBusy || !workbench.nodes.some((node) => node.kind === 'next_action')}
-                onClick={() => {
-                  void handleStartAttentionSession();
-                }}
-                type="button"
-              >
-                Start focus
-              </button>
-            )}
-          </div>
-          <ul>
-            {startModeView.checks.map((check) => (
-              <li key={check}>
-                <Activity aria-hidden="true" size={15} />
-                {check}
-              </li>
-            ))}
-          </ul>
-          <form
-            className="check-in-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (isCheckInSaving || !checkInDraft.trim()) {
-                return;
-              }
-              setIsCheckInSaving(true);
-              try {
-                setScreenState(await createCheckIn(commandClient, screenState, checkInDraft));
-                setCheckInDraft('');
-              } finally {
-                setIsCheckInSaving(false);
-              }
-            }}
-          >
-            <div className="follow-up-prompts" aria-label="Follow-up prompts">
-              {followUpPrompts.map((prompt) => (
-                <button
-                  disabled={isCheckInSaving}
-                  key={prompt}
-                  onClick={() => setCheckInDraft(prompt)}
-                  type="button"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-            <label>
-              Check-in
-              <textarea
-                disabled={isCheckInSaving || !screenState.workspaceId}
-                onChange={(event) => setCheckInDraft(event.target.value)}
-                placeholder="Did you start, where did it get stuck, or what should stay visible next?"
-                value={checkInDraft}
-              />
-            </label>
-            <button disabled={isCheckInSaving || !checkInDraft.trim() || !screenState.workspaceId} type="submit">
-              Save check-in
-            </button>
-          </form>
-          <CheckInHistory checkIns={screenState.checkIns} />
-        </section>
-        ) : null}
-
-        {activeDrawer === 'vault' ? (
-        <section className="vault-surface">
-          <div>
-            <span className="eyebrow">Vault import/export</span>
-            <h2>Manual Markdown snapshot</h2>
-          </div>
-          <div className="action-row">
-            <button
-              disabled={isVaultBusy || !screenState.workspaceId}
-              onClick={async () => {
+              onPreviewVaultImport={(files) => {
+                setScreenState((current) => previewVaultImport(current, files));
+              }}
+              onRejectMemoryProposal={(memoryId) => {
+                setScreenState((current) => rejectPreferenceMemoryProposal(current, memoryId));
+              }}
+              onRejectStrategyExperiment={(experimentId) => {
+                setScreenState((current) => rejectStrategyExperimentProposal(current, experimentId));
+              }}
+              onRejectVaultImport={() => {
+                setScreenState((current) => rejectVaultImportPreview(current));
+              }}
+              onSaveCustomSupportTemplate={() => {
+                setIsCustomSupportTemplateSaving(true);
+                try {
+                  setScreenState((current) => saveCustomSupportTemplate(current, customSupportTitle, customSupportBody));
+                  setCustomSupportTitle('');
+                  setCustomSupportBody('');
+                } finally {
+                  setIsCustomSupportTemplateSaving(false);
+                }
+              }}
+              onSaveMemory={async (memoryId, text) => {
+                setIsMemorySaving(true);
+                try {
+                  setScreenState(await updatePreferenceMemory(commandClient, screenState, memoryId, text));
+                } finally {
+                  setIsMemorySaving(false);
+                }
+              }}
+              onSaveSupport={async (supportId, title, body) => {
+                setIsSupportSaving(true);
+                try {
+                  setScreenState(await updateSupportNode(commandClient, screenState, supportId, title, body));
+                } finally {
+                  setIsSupportSaving(false);
+                }
+              }}
+              onSupportDraftChange={(supportId, draft) => {
+                setSupportDrafts((current) => ({ ...current, [supportId]: draft }));
+              }}
+              onVaultExportPreview={async () => {
+                if (isVaultBusy || !screenState.workspaceId) {
+                  return;
+                }
                 setIsVaultBusy(true);
                 try {
                   const exported = await commandClient.vaultExport(screenState.workspaceId);
-                  setVaultExportSummary(`${exported.files.length} Markdown file${exported.files.length === 1 ? '' : 's'} ready to save manually.`);
+                  setVaultExportSummary(
+                    `${exported.files.length} Markdown file${exported.files.length === 1 ? '' : 's'} ready to save manually.`,
+                  );
                   setScreenState((current) => ({ ...current, lastError: null }));
                 } catch (error) {
                   setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
@@ -1453,231 +893,109 @@ export function App() {
                   setIsVaultBusy(false);
                 }
               }}
-              type="button"
-            >
-              Preview export
-            </button>
-            <button
-              disabled={isVaultBusy || !screenState.workspaceId}
-              onClick={handleVaultExportToFolder}
-              type="button"
-            >
-              Export folder
-            </button>
-            <button
-              className="secondary"
-              disabled={isVaultBusy || !screenState.workspaceId}
-              onClick={handleVaultPickImportFolder}
-              type="button"
-            >
-              Import folder
-            </button>
-          </div>
-          {vaultExportSummary ? <p>{vaultExportSummary}</p> : null}
-          <form
-            className="vault-import-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (isVaultBusy || !vaultImportFilename.trim() || !vaultImportContent.trim()) {
-                return;
-              }
-              setScreenState((current) =>
-                previewVaultImport(current, [
-                  {
-                    filename: vaultImportFilename.trim(),
-                    content: vaultImportContent,
-                  },
-                ]),
-              );
-            }}
-          >
-            <label>
-              Markdown filename
-              <input
-                disabled={isVaultBusy}
-                onChange={(event) => setVaultImportFilename(event.target.value)}
-                value={vaultImportFilename}
-              />
-            </label>
-            <label>
-              Markdown content
-              <textarea
-                disabled={isVaultBusy}
-                onChange={(event) => setVaultImportContent(event.target.value)}
-                placeholder="# Imported note"
-                value={vaultImportContent}
-              />
-            </label>
-            <button disabled={isVaultBusy || !vaultImportFilename.trim() || !vaultImportContent.trim()} type="submit">
-              Preview import
-            </button>
-          </form>
-          {screenState.pendingVaultImport ? (
-            <article className="vault-import-preview">
-              <div>
-                <span className="eyebrow">Pending import</span>
-                <h3>{screenState.pendingVaultImport.fileCount} Markdown file</h3>
-              </div>
-              <p>{screenState.pendingVaultImport.totalBytes} characters queued for manual import.</p>
-              <div className="action-row">
-                <button
-                  disabled={isVaultBusy}
-                  onClick={async () => {
-                    setIsVaultBusy(true);
+              onVaultExportToFolder={handleVaultExportToFolder}
+              onVaultImportContentChange={setVaultImportContent}
+              onVaultImportFilenameChange={setVaultImportFilename}
+              onVaultPickImportFolder={handleVaultPickImportFolder}
+              pendingMemoryDrafts={pendingMemoryDrafts}
+              pendingMemoryProposals={screenState.pendingMemoryProposals}
+              pendingStrategyExperiments={screenState.pendingStrategyExperiments}
+              pendingVaultImport={screenState.pendingVaultImport}
+              preferenceMemory={screenState.preferenceMemory}
+              settingsPanel={
+                <SettingsPanel
+                  adultContextOptions={adultContextOptions}
+                  executionDifficultyOptions={executionDifficultyOptions}
+                  isLlmSaving={isLlmSaving}
+                  isLlmTesting={isLlmTesting}
+                  isOnboardingSaving={isOnboardingSaving}
+                  llmApiKey={llmApiKey}
+                  llmBaseUrl={llmBaseUrl}
+                  llmModel={llmModel}
+                  llmTimeoutSeconds={llmTimeoutSeconds}
+                  onboardingContexts={onboardingContexts}
+                  onboardingDifficulties={onboardingDifficulties}
+                  onboardingSupportCategories={onboardingSupportCategories}
+                  onLlmApiKeyChange={handleLlmApiKeyChange}
+                  onLlmBaseUrlChange={handleLlmBaseUrlChange}
+                  onLlmModelChange={handleLlmModelChange}
+                  onLlmTimeoutSecondsChange={handleLlmTimeoutSecondsChange}
+                  onOnboardingContextsChange={setOnboardingContexts}
+                  onOnboardingDifficultiesChange={setOnboardingDifficulties}
+                  onOnboardingSupportCategoriesChange={setOnboardingSupportCategories}
+                  onSaveLlmSettings={async () => {
+                    if (isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
+                      return;
+                    }
+                    setIsLlmSaving(true);
                     try {
-                      setScreenState(await acceptVaultImportPreview(commandClient, screenState));
-                      setVaultImportContent('');
+                      setScreenState(
+                        await saveLlmSettings(commandClient, screenState, llmBaseUrl, llmApiKey, llmModel, llmTimeoutSeconds),
+                      );
+                      setRequestedPane(null);
+                      setActiveTaskPanel(null);
                     } catch (error) {
                       setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
                     } finally {
-                      setIsVaultBusy(false);
+                      setIsLlmSaving(false);
                     }
                   }}
-                  type="button"
-                >
-                  Accept import
-                </button>
-                <button
-                  className="secondary"
-                  disabled={isVaultBusy}
-                  onClick={() => setScreenState((current) => rejectVaultImportPreview(current))}
-                  type="button"
-                >
-                  Reject
-                </button>
-              </div>
-            </article>
-          ) : null}
-        </section>
-        ) : null}
-
-        {activeDrawer === 'memory' ? (
-        <section className="memory-surface">
-          <div>
-            <span className="eyebrow">Preference memory</span>
-            <h2>Review saved preferences</h2>
-          </div>
-          {screenState.pendingMemoryProposals.length > 0 ? (
-            <div className="memory-list" aria-label="Pending preference memory proposals">
-              {screenState.pendingMemoryProposals.map((memory) => (
-                <form
-                  className="memory-item pending"
-                  key={memory.id}
-                  onSubmit={async (event) => {
-                    event.preventDefault();
-                    const draft = pendingMemoryDrafts[memory.id] ?? '';
-                    if (isMemorySaving || !draft.trim()) {
+                  onSaveOnboardingProfile={async () => {
+                    if (isOnboardingSaving) {
                       return;
                     }
-                    setIsMemorySaving(true);
+                    setIsOnboardingSaving(true);
                     try {
                       setScreenState(
-                        await acceptPreferenceMemoryProposal(commandClient, screenState, memory.id, draft),
+                        await saveOnboardingProfile(
+                          commandClient,
+                          screenState,
+                          onboardingContexts,
+                          onboardingDifficulties,
+                          onboardingSupportCategories,
+                        ),
                       );
+                    } catch (error) {
+                      setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
                     } finally {
-                      setIsMemorySaving(false);
+                      setIsOnboardingSaving(false);
                     }
                   }}
-                >
-                  <label>
-                    Proposed preference
-                    <textarea
-                      disabled={isMemorySaving}
-                      onChange={(event) =>
-                        setPendingMemoryDrafts((current) => ({
-                          ...current,
-                          [memory.id]: event.target.value,
-                        }))
-                      }
-                      value={pendingMemoryDrafts[memory.id] ?? memory.proposedMemoryText}
-                    />
-                  </label>
-                  {memory.evidenceReference ? <span>Evidence: {memory.evidenceReference}</span> : null}
-                  <div className="action-row">
-                    <button disabled={isMemorySaving || !(pendingMemoryDrafts[memory.id] ?? '').trim()} type="submit">
-                      Accept memory
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={isMemorySaving}
-                      onClick={() =>
-                        setScreenState((current) => rejectPreferenceMemoryProposal(current, memory.id))
-                      }
-                      type="button"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </form>
-              ))}
-            </div>
-          ) : null}
-          {screenState.preferenceMemory.length === 0 ? (
-            <p>No saved preference memory yet.</p>
-          ) : (
-            <div className="memory-list">
-              {screenState.preferenceMemory.map((memory) => (
-                <form
-                  className="memory-item"
-                  key={memory.id}
-                  onSubmit={async (event) => {
-                    event.preventDefault();
-                    const draft = memoryDrafts[memory.id] ?? '';
-                    if (isMemorySaving || !draft.trim()) {
+                  onTestLlmSettings={async () => {
+                    if (isLlmTesting || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
                       return;
                     }
-                    setIsMemorySaving(true);
+                    setIsLlmTesting(true);
                     try {
-                      setScreenState(await updatePreferenceMemory(commandClient, screenState, memory.id, draft));
+                      setScreenState(
+                        await testLlmSettings(commandClient, screenState, llmBaseUrl, llmApiKey, llmModel, llmTimeoutSeconds),
+                      );
+                    } catch (error) {
+                      setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
                     } finally {
-                      setIsMemorySaving(false);
+                      setIsLlmTesting(false);
                     }
                   }}
-                >
-                  <label>
-                    Saved preference
-                    <textarea
-                      disabled={isMemorySaving}
-                      onChange={(event) =>
-                        setMemoryDrafts((current) => ({
-                          ...current,
-                          [memory.id]: event.target.value,
-                        }))
-                      }
-                      value={memoryDrafts[memory.id] ?? memory.proposedMemoryText}
-                    />
-                  </label>
-                  {memory.evidenceReference ? <span>Evidence: {memory.evidenceReference}</span> : null}
-                  <div className="action-row">
-                    <button disabled={isMemorySaving || !(memoryDrafts[memory.id] ?? '').trim()} type="submit">
-                      Save
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={isMemorySaving}
-                      onClick={async () => {
-                        setIsMemorySaving(true);
-                        try {
-                          setScreenState(await deletePreferenceMemory(commandClient, screenState, memory.id));
-                        } finally {
-                          setIsMemorySaving(false);
-                        }
-                      }}
-                      type="button"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </form>
-              ))}
-            </div>
-          )}
-        </section>
-        ) : null}
-      </aside>
-      ) : null}
-
-      {isStartModeFocused ? (
+                  onThemePreferenceChange={setThemePreference}
+                  profile={screenState.contextProfile}
+                  providerTestMessage={screenState.providerTestResult?.message ?? null}
+                  providerTestStatus={screenState.providerTestResult ? 'ok' : 'idle'}
+                  settingsSections={settingsSections}
+                  supportCategoryOptions={supportCategoryOptions}
+                  themeOptions={themeOptions}
+                  themePreference={themePreference}
+                />
+              }
+              supportDrafts={supportDrafts}
+              supportTemplates={supportTemplates}
+              vaultExportSummary={vaultExportSummary}
+              vaultImportContent={vaultImportContent}
+              vaultImportFilename={vaultImportFilename}
+              workspaceReady={Boolean(screenState.workspaceId)}
+            />
+          }
+        />
+      ) : (
         <section className="start-mode-focus" aria-label="Focused Start Mode">
           <div className="start-mode-focus-header">
             <div>
@@ -1697,87 +1015,32 @@ export function App() {
               Return to map
             </button>
           </div>
-          <p className="start-mode-focus-minimum">{startModeView.minimumDone}</p>
-          <dl className="start-mode-details">
-            {startModeView.details.map((detail) => (
-              <div key={detail.label}>
-                <dt>{detail.label}</dt>
-                <dd>{detail.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <ul>
-            {startModeView.checks.map((check) => (
-              <li key={check}>
-                <Activity aria-hidden="true" size={15} />
-                {check}
-              </li>
-            ))}
-          </ul>
-          <div className="session-controls">
-            <span>{screenState.attentionSession ? 'Focus session active' : 'Ready to start'}</span>
-            {startTimerState ? (
-              <div className="timer-status" aria-label="Focus timer">
-                <strong>{startTimerState.label}</strong>
-                <span>
-                  {startTimerState.remainingMinutes > 0
-                    ? `${startTimerState.remainingMinutes} min left in this launch`
-                    : 'Launch window is open-ended'}
-                </span>
-              </div>
-            ) : null}
-            {screenState.attentionSession ? (
-              <form
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  if (isSessionBusy) {
-                    return;
-                  }
-                  setIsSessionBusy(true);
-                  try {
-                    setScreenState(
-                      await closeAttentionSession(
-                        commandClient,
-                        screenState,
-                        new Date().toISOString(),
-                        sessionCompletionNote,
-                      ),
-                    );
-                    setSessionCompletionNote('');
-                  } finally {
-                    setIsSessionBusy(false);
-                  }
-                }}
-              >
-                <input
-                  disabled={isSessionBusy}
-                  onChange={(event) => setSessionCompletionNote(event.target.value)}
-                  placeholder="What changed or where to resume?"
-                  value={sessionCompletionNote}
-                />
-                <button disabled={isSessionBusy} type="submit">
-                  Close session
-                </button>
-              </form>
-            ) : (
-              <button
-                disabled={isSessionBusy || !hasStartableAction}
-                onClick={() => {
-                  void handleStartAttentionSession();
-                }}
-                type="button"
-              >
-                Start focus
-              </button>
-            )}
-          </div>
-          <form
-            className="check-in-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (isCheckInSaving || !checkInDraft.trim()) {
-                return;
+          <StartPanel
+            attentionSession={screenState.attentionSession}
+            checkInDraft={checkInDraft}
+            checkIns={screenState.checkIns}
+            followUpPrompts={followUpPrompts}
+            hasStartableAction={hasStartableAction}
+            isCheckInSaving={isCheckInSaving}
+            isSessionBusy={isSessionBusy}
+            onCheckInDraftChange={setCheckInDraft}
+            onCloseSession={async () => {
+              setIsSessionBusy(true);
+              try {
+                setScreenState(
+                  await closeAttentionSession(
+                    commandClient,
+                    screenState,
+                    new Date().toISOString(),
+                    sessionCompletionNote,
+                  ),
+                );
+                setSessionCompletionNote('');
+              } finally {
+                setIsSessionBusy(false);
               }
+            }}
+            onSaveCheckIn={async () => {
               setIsCheckInSaving(true);
               try {
                 setScreenState(await createCheckIn(commandClient, screenState, checkInDraft));
@@ -1786,35 +1049,15 @@ export function App() {
                 setIsCheckInSaving(false);
               }
             }}
-          >
-            <div className="follow-up-prompts" aria-label="Follow-up prompts">
-              {followUpPrompts.map((prompt) => (
-                <button
-                  disabled={isCheckInSaving}
-                  key={prompt}
-                  onClick={() => setCheckInDraft(prompt)}
-                  type="button"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-            <label>
-              Check-in
-              <textarea
-                disabled={isCheckInSaving || !screenState.workspaceId}
-                onChange={(event) => setCheckInDraft(event.target.value)}
-                placeholder="Did you start, where did it get stuck, or what should stay visible next?"
-                value={checkInDraft}
-              />
-            </label>
-            <button disabled={isCheckInSaving || !checkInDraft.trim() || !screenState.workspaceId} type="submit">
-              Save check-in
-            </button>
-          </form>
-          <CheckInHistory checkIns={screenState.checkIns} />
+            onSessionCompletionNoteChange={setSessionCompletionNote}
+            onStartSession={handleStartAttentionSession}
+            sessionCompletionNote={sessionCompletionNote}
+            startModeView={startModeView}
+            startTimerState={startTimerState}
+            workspaceReady={Boolean(screenState.workspaceId)}
+          />
         </section>
-      ) : null}
+      )}
     </main>
   );
 }

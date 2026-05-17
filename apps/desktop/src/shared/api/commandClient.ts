@@ -11,6 +11,7 @@ import type {
   CommandEdge,
   CommandExperimentContext,
   CommandLlmSettings,
+  CommandLlmTestResult,
   CommandMapSnapshot,
   CommandMemory,
   CommandNode,
@@ -41,6 +42,7 @@ export type {
   CommandEdge,
   CommandExperimentContext,
   CommandLlmSettings,
+  CommandLlmTestResult,
   CommandMapSnapshot,
   CommandMemory,
   CommandNode,
@@ -111,6 +113,12 @@ export type CommandClient = {
   vaultImport: (workspaceId: string, files: CommandVaultFile[]) => Promise<CommandVaultImport>;
   checkInCreate: (workspaceId: string, nodeId: string | null, body: string) => Promise<CommandCheckIn>;
   checkInList: (workspaceId: string) => Promise<CommandCheckIn[]>;
+  settingsTestLlm: (
+    baseUrl: string,
+    apiKey: string,
+    model: string,
+    timeoutSeconds: number,
+  ) => Promise<CommandLlmTestResult>;
   settingsUpdateLlm: (
     baseUrl: string,
     apiKey: string,
@@ -251,6 +259,8 @@ export function createTauriCommandClient(
     checkInCreate: (workspaceId, nodeId, body) =>
       invoke<CommandCheckIn>('check_in_create', { workspaceId, nodeId, body }),
     checkInList: (workspaceId) => invoke<CommandCheckIn[]>('check_in_list', { workspaceId }),
+    settingsTestLlm: (baseUrl, apiKey, model, timeoutSeconds) =>
+      invoke<CommandLlmTestResult>('settings_test_llm', { baseUrl, apiKey, model, timeoutSeconds }),
     settingsUpdateLlm: (baseUrl, apiKey, model, timeoutSeconds) =>
       invoke<CommandLlmSettings>('settings_update_llm', { baseUrl, apiKey, model, timeoutSeconds }),
   };
@@ -417,6 +427,9 @@ export function createMockCommandClient(): CommandClient {
       return { ...state.contextProfile };
     },
     async agentTurnSubmit(_workspaceId, selectedNodeId, _message) {
+      if (state.contextProfile.llmProviderSetupState !== 'configured') {
+        throw new Error('Configure an LLM provider first.');
+      }
       const preview: CommandPreview = {
         id: 'preview-1',
         proposedNodes: [
@@ -595,8 +608,25 @@ export function createMockCommandClient(): CommandClient {
         .filter((checkIn) => checkIn.workspaceId === workspaceId)
         .map((checkIn) => ({ ...checkIn }));
     },
+    async settingsTestLlm(baseUrl, apiKey, model, timeoutSeconds) {
+      if (!baseUrl.trim() || !apiKey.trim() || !model.trim() || timeoutSeconds <= 0) {
+        throw new Error('Complete provider settings before testing.');
+      }
+      return {
+        status: 'ok',
+        model: model.trim(),
+        message: 'Connection test succeeded.',
+      };
+    },
     async settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds) {
+      if (!baseUrl.trim() || !apiKey.trim() || !model.trim() || timeoutSeconds <= 0) {
+        throw new Error('Complete provider settings before saving.');
+      }
       state.settings = { baseUrl, apiKey, model, timeoutSeconds };
+      state.contextProfile = {
+        ...state.contextProfile,
+        llmProviderSetupState: 'configured',
+      };
       return { ...state.settings };
     },
   };

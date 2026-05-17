@@ -186,6 +186,12 @@ export type CommandLlmSettings = {
   timeoutSeconds: number;
 };
 
+export type CommandLlmTestResult = {
+  status: 'ok';
+  model: string;
+  message: string;
+};
+
 export type CommandVaultFile = {
   filename: string;
   content: string;

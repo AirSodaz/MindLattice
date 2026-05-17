@@ -20,6 +20,7 @@ test('mock command client opens workspace and returns typed map snapshot', async
 test('mock agent turn returns preview without mutating persisted map', async () => {
   const client = createMockCommandClient();
   const workspace = await client.workspaceOpenDefault();
+  await configureMockLlm(client);
   const before = await client.mapGet(workspace.id);
 
   const response = await client.agentTurnSubmit(workspace.id, before.nodes[0].id, 'Break this down');
@@ -32,6 +33,7 @@ test('mock agent turn returns preview without mutating persisted map', async () 
 test('accepting preview persists proposed nodes and clears active preview', async () => {
   const client = createMockCommandClient();
   const workspace = await client.workspaceOpenDefault();
+  await configureMockLlm(client);
   const response = await client.agentTurnSubmit(workspace.id, null, 'Break this down');
 
   await client.agentPreviewAccept(workspace.id, response.preview.id);
@@ -45,6 +47,7 @@ test('accepting preview persists proposed nodes and clears active preview', asyn
 test('revising preview replaces the active draft without mutating persisted map', async () => {
   const client = createMockCommandClient();
   const workspace = await client.workspaceOpenDefault();
+  await configureMockLlm(client);
   const before = await client.mapGet(workspace.id);
   const response = await client.agentTurnSubmit(workspace.id, before.nodes[0].id, 'Break this down');
 
@@ -217,6 +220,7 @@ test('Tauri command client invokes full shell command surface for phase-one data
   await client.agentMemoryDelete('workspace-1', 'memory-1');
   await client.checkInCreate('workspace-1', 'next-1', 'Started with the smallest visible step.');
   await client.checkInList('workspace-1');
+  await client.settingsTestLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
   await client.settingsUpdateLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
 
   assert.deepEqual(calls, [
@@ -252,6 +256,15 @@ test('Tauri command client invokes full shell command surface for phase-one data
     },
     { command: 'check_in_list', args: { workspaceId: 'workspace-1' } },
     {
+      command: 'settings_test_llm',
+      args: {
+        baseUrl: 'http://localhost:11434/v1',
+        apiKey: 'local-key',
+        model: 'llama3.2',
+        timeoutSeconds: 30,
+      },
+    },
+    {
       command: 'settings_update_llm',
       args: {
         baseUrl: 'http://localhost:11434/v1',
@@ -261,6 +274,32 @@ test('Tauri command client invokes full shell command surface for phase-one data
       },
     },
   ]);
+});
+
+test('mock provider test succeeds without saving LLM settings or enabling agent turns', async () => {
+  const client = createMockCommandClient();
+  const workspace = await client.workspaceOpenDefault();
+
+  const result = await client.settingsTestLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
+
+  assert.deepEqual(result, {
+    status: 'ok',
+    model: 'llama3.2',
+    message: 'Connection test succeeded.',
+  });
+  await assert.rejects(
+    () => client.agentTurnSubmit(workspace.id, null, 'Break this down before saving settings.'),
+    /Configure an LLM provider first/,
+  );
+});
+
+test('mock provider test validates local settings', async () => {
+  const client = createMockCommandClient();
+
+  await assert.rejects(
+    () => client.settingsTestLlm('', 'local-key', 'llama3.2', 30),
+    /Complete provider settings before testing/,
+  );
 });
 
 test('mock vault import and export use Markdown-shaped file DTOs', async () => {
@@ -369,3 +408,7 @@ test('Tauri command client exports Markdown files into a selected Vault folder',
   ]);
   assert.deepEqual(result, { directory: 'C:/Vault', filesWritten: 2 });
 });
+
+async function configureMockLlm(client) {
+  await client.settingsUpdateLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
+}

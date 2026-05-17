@@ -16,7 +16,9 @@ use mindlattice_vault::markdown::{VaultExportFile, VaultExportResult, VaultImpor
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, Runtime};
 
-use crate::commands::{self, CommandError, CommandRuntime, VaultImportFileDto};
+use crate::commands::{
+    self, CommandError, CommandRuntime, LlmProviderTestResult, VaultImportFileDto,
+};
 
 pub const REGISTERED_COMMAND_NAMES: &[&str] = &[
     "workspace_open_default",
@@ -48,6 +50,7 @@ pub const REGISTERED_COMMAND_NAMES: &[&str] = &[
     "vault_export",
     "check_in_create",
     "check_in_list",
+    "settings_test_llm",
     "settings_update_llm",
 ];
 
@@ -314,6 +317,14 @@ pub struct CommandLlmSettingsDto {
     pub api_key: String,
     pub model: String,
     pub timeout_seconds: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandLlmTestResultDto {
+    pub status: String,
+    pub model: String,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -681,6 +692,19 @@ pub fn settings_update_llm(
         .map_err(Into::into)
 }
 
+pub fn settings_test_llm(
+    runtime: SharedCommandRuntime,
+    base_url: String,
+    api_key: String,
+    model: String,
+    timeout_seconds: u64,
+) -> Result<CommandLlmTestResultDto, CommandErrorDto> {
+    let runtime = runtime.lock().map_err(|_| CommandError::Repository)?;
+    commands::settings_test_llm(&runtime, &base_url, &api_key, &model, timeout_seconds)
+        .map(CommandLlmTestResultDto::from)
+        .map_err(Into::into)
+}
+
 impl From<Workspace> for CommandWorkspaceDto {
     fn from(value: Workspace) -> Self {
         Self {
@@ -916,6 +940,16 @@ impl From<LlmProviderConfig> for CommandLlmSettingsDto {
             api_key: value.api_key,
             model: value.model,
             timeout_seconds: value.timeout_seconds,
+        }
+    }
+}
+
+impl From<LlmProviderTestResult> for CommandLlmTestResultDto {
+    fn from(value: LlmProviderTestResult) -> Self {
+        Self {
+            status: value.status,
+            model: value.model,
+            message: value.message,
         }
     }
 }

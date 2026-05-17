@@ -4,6 +4,18 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
 export type WorkbenchShortcutAction = 'focus-capture' | 'save-selected-node' | 'start-mode';
 export type WorkbenchViewMode = 'map' | 'start';
+export type ProviderReadiness = 'not_configured' | 'editing' | 'testing' | 'configured' | 'failed';
+export type TurnState = 'idle' | 'submitting' | 'drafting' | 'validating' | 'awaiting_review' | 'blocked' | 'failed';
+export type WorkbenchTaskPanel = 'support' | 'memory' | 'vault' | 'settings' | 'diagnostics' | null;
+export type RightPaneMode =
+  | 'setup'
+  | 'empty'
+  | 'preview'
+  | 'canvas'
+  | 'start'
+  | 'safety'
+  | 'advanced_map'
+  | 'task_panel';
 export type WorkbenchDrawer =
   | null
   | 'preview'
@@ -132,6 +144,18 @@ export type PresentedCommandError = {
   detail: string;
 };
 
+export type RightPaneSelectionInput = {
+  providerSetupRequired: boolean;
+  setupRequested: boolean;
+  safetyRedirectActive: boolean;
+  activePreview: AgentPreviewModel | null;
+  viewMode: WorkbenchViewMode;
+  hasGraphContext: boolean;
+  advancedMapRequested: boolean;
+  startRequested: boolean;
+  taskPanel: WorkbenchTaskPanel;
+};
+
 export function drawerTitle(drawer: WorkbenchDrawer): string {
   const titles: Record<Exclude<WorkbenchDrawer, null>, string> = {
     preview: 'Agent preview',
@@ -143,6 +167,31 @@ export function drawerTitle(drawer: WorkbenchDrawer): string {
     settings: 'Settings',
   };
   return drawer ? titles[drawer] : 'Context drawer';
+}
+
+export function selectRightPaneMode(input: RightPaneSelectionInput): RightPaneMode {
+  if (input.providerSetupRequired && input.setupRequested) {
+    return 'setup';
+  }
+  if (input.safetyRedirectActive) {
+    return 'safety';
+  }
+  if (input.activePreview) {
+    return 'preview';
+  }
+  if (input.viewMode === 'start' || input.startRequested) {
+    return 'start';
+  }
+  if (input.advancedMapRequested) {
+    return 'advanced_map';
+  }
+  if (input.taskPanel) {
+    return 'task_panel';
+  }
+  if (input.hasGraphContext) {
+    return 'canvas';
+  }
+  return 'empty';
 }
 
 export function resolveTheme(preference: ThemePreference, systemPrefersDark: boolean): ResolvedTheme {

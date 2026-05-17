@@ -6,6 +6,8 @@ import {
   type CommandAttentionSession,
   type CommandCheckIn,
   type CommandContextProfile,
+  type CommandLlmSettings,
+  type CommandLlmTestResult,
   type CommandMemory,
   type CommandPreview,
   type CommandStartPlan,
@@ -27,6 +29,8 @@ export type WorkbenchScreenState = {
   strategyExperiments: CommandStrategyExperiment[];
   pendingStrategyExperiments: CommandStrategyExperiment[];
   pendingVaultImport: VaultImportPreview | null;
+  providerTestResult: CommandLlmTestResult | null;
+  providerTestedSettings: CommandLlmSettings | null;
   attentionSession: CommandAttentionSession | null;
   lastError: PresentedCommandError | null;
   workbench: WorkbenchModel;
@@ -62,6 +66,8 @@ export async function initializeWorkbench(client: CommandClient): Promise<Workbe
     strategyExperiments: [],
     pendingStrategyExperiments: [],
     pendingVaultImport: null,
+    providerTestResult: null,
+    providerTestedSettings: null,
     attentionSession: null,
     lastError: null,
     workbench: {
@@ -872,7 +878,25 @@ export async function submitAgentMessage(
     return state;
   }
   if (state.contextProfile.llmProviderSetupState !== 'configured') {
-    return createFocusTask(client, state, trimmedMessage);
+    const error = {
+      message: 'Configure LLM to use the execution agent.',
+      detail: 'missing_llm_provider_settings',
+    };
+    return {
+      ...state,
+      lastError: error,
+      workbench: {
+        ...state.workbench,
+        messages: [
+          ...state.workbench.messages,
+          {
+            id: `agent-${state.workbench.messages.length + 1}`,
+            sender: 'agent',
+            body: error.message,
+          },
+        ],
+      },
+    };
   }
 
   const response = await client.agentTurnSubmit(
@@ -904,6 +928,45 @@ export async function submitAgentMessage(
   };
 }
 
+export async function testLlmSettings(
+  client: CommandClient,
+  state: WorkbenchScreenState,
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  timeoutSeconds: number,
+): Promise<WorkbenchScreenState> {
+  const providerTestResult = await client.settingsTestLlm(
+    cleanBaseUrl(baseUrl),
+    apiKey.trim(),
+    model.trim(),
+    timeoutSeconds,
+  );
+
+  return {
+    ...state,
+    providerTestResult,
+    providerTestedSettings: {
+      baseUrl: cleanBaseUrl(baseUrl),
+      apiKey: apiKey.trim(),
+      model: model.trim(),
+      timeoutSeconds,
+    },
+    lastError: null,
+    workbench: {
+      ...state.workbench,
+      messages: [
+        ...state.workbench.messages,
+        {
+          id: `agent-${state.workbench.messages.length + 1}`,
+          sender: 'agent',
+          body: providerTestResult.message,
+        },
+      ],
+    },
+  };
+}
+
 export async function saveLlmSettings(
   client: CommandClient,
   state: WorkbenchScreenState,
@@ -912,7 +975,33 @@ export async function saveLlmSettings(
   model: string,
   timeoutSeconds: number,
 ): Promise<WorkbenchScreenState> {
-  await client.settingsUpdateLlm(baseUrl.trim(), apiKey.trim(), model.trim(), timeoutSeconds);
+  const settings = {
+    baseUrl: cleanBaseUrl(baseUrl),
+    apiKey: apiKey.trim(),
+    model: model.trim(),
+    timeoutSeconds,
+  };
+  if (!state.providerTestResult || !state.providerTestedSettings) {
+    return {
+      ...state,
+      lastError: {
+        message: 'Test the LLM connection before saving.',
+        detail: 'settings_test_required',
+      },
+    };
+  }
+  if (!sameLlmSettings(state.providerTestedSettings, settings)) {
+    return {
+      ...state,
+      lastError: {
+        message: 'Test the current LLM settings before saving.',
+        detail: 'settings_test_stale',
+      },
+      providerTestResult: null,
+    };
+  }
+
+  await client.settingsUpdateLlm(settings.baseUrl, settings.apiKey, settings.model, settings.timeoutSeconds);
   const contextProfile = await client.contextProfileUpdate({
     ...state.contextProfile,
     llmProviderSetupState: 'configured',
@@ -921,6 +1010,8 @@ export async function saveLlmSettings(
   return {
     ...state,
     contextProfile,
+    providerTestResult: null,
+    providerTestedSettings: null,
     lastError: null,
     workbench: {
       ...state.workbench,
@@ -934,6 +1025,19 @@ export async function saveLlmSettings(
       ],
     },
   };
+}
+
+function cleanBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/, '');
+}
+
+function sameLlmSettings(left: CommandLlmSettings, right: CommandLlmSettings): boolean {
+  return (
+    left.baseUrl === right.baseUrl &&
+    left.apiKey === right.apiKey &&
+    left.model === right.model &&
+    left.timeoutSeconds === right.timeoutSeconds
+  );
 }
 
 export async function saveOnboardingProfile(

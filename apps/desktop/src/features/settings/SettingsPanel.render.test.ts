@@ -22,6 +22,7 @@ test('settings panel renders provider, profile, safety, and interface groups', a
       adultContextOptions: ['work', 'study'],
       executionDifficultyOptions: ['task initiation', 'return after interruption'],
       isLlmSaving: false,
+      isLlmTesting: false,
       isOnboardingSaving: false,
       llmApiKey: '',
       llmBaseUrl: 'http://localhost:11434/v1',
@@ -37,6 +38,7 @@ test('settings panel renders provider, profile, safety, and interface groups', a
       onOnboardingContextsChange: () => {},
       onOnboardingDifficultiesChange: () => {},
       onOnboardingSupportCategoriesChange: () => {},
+      onTestLlmSettings: () => {},
       onSaveLlmSettings: () => {},
       onSaveOnboardingProfile: () => {},
       onThemePreferenceChange: () => {},
@@ -54,6 +56,7 @@ test('settings panel renders provider, profile, safety, and interface groups', a
 
   assert.match(html, /Agent setup and local preferences/);
   assert.match(html, /Required LLM connection/);
+  assert.match(html, /Test connection/);
   assert.match(html, /Support matching defaults/);
   assert.match(html, /Low-risk execution support/);
   assert.match(html, /No diagnosis, treatment, medication guidance, symptom scoring/);
