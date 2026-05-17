@@ -17,6 +17,7 @@ This directory contains the source of truth for MindLattice product, architectur
 | --- | --- | --- | --- |
 | [Product Requirements](product.md) | Defines product boundary, MVP behavior, safety tone, and acceptance criteria. | Product, design, engineering | Product behavior, safety boundary, or MVP scope changes. |
 | [UI Style](ui-style.md) | Defines cross-platform visual style, theme behavior, and design token rules. | Product, design, engineering | Visual style, themes, component styling, or platform UI rules change. |
+| [Market Research](market-research.zh-CN.md) | Summarizes market landscape, competitive positioning, development direction, feature design, and interaction design. | Product, design, engineering | Product positioning, competitive assumptions, or market strategy changes. |
 | [Architecture](architecture.md) | Defines technical boundaries, planned repo structure, DTOs, storage, commands, and safety architecture. | Engineering | Core interfaces, storage model, command surface, or platform assumptions change. |
 | [Development Plan](development-plan.md) | Defines implementation phases, dependencies, deliverables, and validation. | Engineering, QA | Phase order, test strategy, or release readiness changes. |
 | [Smoke Test Checklist](smoke-test-checklist.md) | Lists manual MVP checks for fresh install, agent flow, Start Mode, Vault, safety, and packaging. | Engineering, QA | Release validation scope or packaging gates change. |
@@ -34,4 +35,4 @@ This directory contains the source of truth for MindLattice product, architectur
 
 ## Current Repository State
 
-The repository now includes the first Rust workspace scaffold under `crates/core`, `crates/storage`, `crates/ai`, `crates/agent`, `crates/vault`, and `apps/desktop/src-tauri`, plus a React/Vite desktop UI scaffold under `apps/desktop/src`. `crates/ai` includes an OpenAI-compatible chat-completions transport, and the desktop command runtime can load saved provider settings for live agent turns.
+The repository now includes the first Rust workspace scaffold under `crates/core`, `crates/storage`, `crates/ai`, `crates/agent`, `crates/vault`, and `apps/desktop/src-tauri`, plus a React/Vite desktop UI scaffold under `apps/desktop/src`. `crates/ai` includes API-mode-specific LLM transports for OpenAI Chat Completions compatible, OpenAI Responses compatible, Claude Messages compatible, and Google Gemini native `generateContent` providers. The desktop UI includes provider presets, explicit API-mode selection, and `i18next`/`react-i18next` localization for English and Simplified Chinese interface text.
