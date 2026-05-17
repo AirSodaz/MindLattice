@@ -154,8 +154,8 @@ test('testing LLM settings records test status without saving or unlocking the a
   let savedSettings = null;
   const client = {
     ...baseClient,
-    async settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds) {
-      savedSettings = await baseClient.settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds);
+    async settingsUpdateLlm(providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) {
+      savedSettings = await baseClient.settingsUpdateLlm(providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds);
       return savedSettings;
     },
   };
@@ -164,6 +164,8 @@ test('testing LLM settings records test status without saving or unlocking the a
   const testedState = await testLlmSettings(
     client,
     initialState,
+    'ollama_local',
+    'openai_chat_completions',
     'http://localhost:11434/v1',
     'local-key',
     'llama3.2',
@@ -189,6 +191,8 @@ test('saving LLM settings requires a successful matching provider test first', a
   const untestedState = await saveLlmSettings(
     client,
     initialState,
+    'ollama_local',
+    'openai_chat_completions',
     'http://localhost:11434/v1',
     'local-key',
     'llama3.2',
@@ -201,6 +205,8 @@ test('saving LLM settings requires a successful matching provider test first', a
   const testedState = await testLlmSettings(
     client,
     initialState,
+    'ollama_local',
+    'openai_chat_completions',
     'http://localhost:11434/v1',
     'local-key',
     'llama3.2',
@@ -209,6 +215,8 @@ test('saving LLM settings requires a successful matching provider test first', a
   const changedModelState = await saveLlmSettings(
     client,
     testedState,
+    'ollama_local',
+    'openai_chat_completions',
     'http://localhost:11434/v1',
     'local-key',
     'different-model',
@@ -225,8 +233,8 @@ test('saving LLM settings marks the profile configured and enables agent turns',
   let savedProfile = null;
   const client = {
     ...baseClient,
-    async settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds) {
-      savedSettings = await baseClient.settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds);
+    async settingsUpdateLlm(providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) {
+      savedSettings = await baseClient.settingsUpdateLlm(providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds);
       return savedSettings;
     },
     async contextProfileUpdate(profile) {
@@ -239,6 +247,8 @@ test('saving LLM settings marks the profile configured and enables agent turns',
   const testedState = await testLlmSettings(
     client,
     initialState,
+    'ollama_local',
+    'openai_chat_completions',
     'http://localhost:11434/v1',
     'local-key',
     'llama3.2',
@@ -247,6 +257,8 @@ test('saving LLM settings marks the profile configured and enables agent turns',
   const configuredState = await saveLlmSettings(
     client,
     testedState,
+    'ollama_local',
+    'openai_chat_completions',
     'http://localhost:11434/v1',
     'local-key',
     'llama3.2',
@@ -255,6 +267,8 @@ test('saving LLM settings marks the profile configured and enables agent turns',
   const nextState = await submitAgentMessage(client, configuredState, 'Break this down.');
 
   assert.deepEqual(savedSettings, {
+    providerId: 'ollama_local',
+    apiMode: 'openai_chat_completions',
     baseUrl: 'http://localhost:11434/v1',
     apiKey: 'local-key',
     model: 'llama3.2',
@@ -1053,10 +1067,12 @@ async function markLlmConfigured(client, state) {
   const testedState = await testLlmSettings(
     client,
     state,
+    'ollama_local',
+    'openai_chat_completions',
     'http://localhost:11434/v1',
     'local-key',
     'llama3.2',
     30,
   );
-  return saveLlmSettings(client, testedState, 'http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
+  return saveLlmSettings(client, testedState, 'ollama_local', 'openai_chat_completions', 'http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
 }

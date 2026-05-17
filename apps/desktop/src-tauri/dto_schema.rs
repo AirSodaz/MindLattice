@@ -228,6 +228,8 @@ const COMMAND_DTO_TYPES: &[TypeAlias] = &[
     TypeAlias {
         name: "CommandLlmSettings",
         body: TypeBody::Object(&[
+            "providerId: string",
+            "apiMode: string",
             "baseUrl: string",
             "apiKey: string",
             "model: string",

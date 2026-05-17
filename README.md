@@ -2,7 +2,7 @@
 
 MindLattice, Chinese working name "心格", is a desktop-first LLM-dependent self-help execution support tool for adults with ADHD traits who need help turning messy working memory into visible, startable action.
 
-The project began as documentation-first and now includes the first Rust workspace scaffold for core, storage, AI-provider contracts, agent orchestration, Vault Markdown interoperability, a Tauri 2 desktop shell with a typed command bridge, file-backed app-data storage, and a React/Vite desktop UI scaffold. The AI crate includes an OpenAI-compatible provider transport that uses configured `base_url`, `api_key`, `model`, and timeout settings.
+The project began as documentation-first and now includes the first Rust workspace scaffold for core, storage, AI-provider contracts, agent orchestration, Vault Markdown interoperability, a Tauri 2 desktop shell with a typed command bridge, file-backed app-data storage, and a React/Vite desktop UI scaffold. The AI crate includes explicit provider modes for OpenAI Chat Completions compatible, OpenAI Responses compatible, Claude Messages compatible, and Google Gemini native `generateContent` transports using configured provider ID, API mode, `base_url`, `api_key`, `model`, and timeout settings.
 
 ## Product Boundary
 
@@ -40,7 +40,7 @@ Included:
 - Rust shared core for domain rules and safety boundaries.
 - SQLite as the local source of truth.
 - Local support templates, strategy cards, and strategy experiment records.
-- Required LLM provider setup through a pluggable cloud model adapter.
+- Required LLM provider setup through preset providers or manual advanced configuration.
 - Core-governed tool loop, structured agent skills, versioned prompts, and confirmed memory.
 - Manual Obsidian-compatible Markdown import and export.
 
@@ -59,9 +59,9 @@ MindLattice keeps product rules out of the interface:
 - `crates/core`: domain model, graph rules, support templates, strategy experiments, start plans, proposal validation, and safety boundaries.
 - `crates/storage`: SQLite schema and repositories.
 - `crates/agent`: conversational agent loop foundation, structured skill specs, prompt orchestration, preview validation, and structured failure handling.
-- `crates/ai`: provider trait, structured request/response DTOs, and OpenAI-compatible transport.
+- `crates/ai`: provider trait, structured request/response DTOs, and API-mode-specific provider transports.
 - `apps/desktop/src-tauri`: Tauri 2 shell and testable typed command boundary over storage, core, agent, and Vault scaffolds.
-- `apps/desktop/src`: React/Vite workbench scaffold for the agent thread, star-map canvas, preview review, inspector, Start Mode, and theme tokens.
+- `apps/desktop/src`: React/Vite workbench scaffold for the agent thread, star-map canvas, preview review, inspector, Start Mode, provider setup, i18next localization, and theme tokens.
 - `crates/vault`: manual Markdown import and export.
 
 The desktop UI MUST call typed Tauri commands for mutations. It MUST NOT directly read or write SQLite or own core task rules.

@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Draft |
 | Owner | Product and engineering |
-| Last updated | 2026-05-16 |
+| Last updated | 2026-05-17 |
 | Scope | MVP and first release product requirements |
 
 ## Purpose
@@ -260,6 +260,45 @@ Agent proposal validation MUST reject:
 - Claims that a support will improve ADHD.
 - Self-harm, severe crisis, substance-use risk, mania, psychosis, or other crisis-risk language in ordinary task advice.
 
+### LLM Provider Setup
+
+The first release MUST make provider setup fast for common providers while preserving manual advanced configuration.
+
+Provider setup MUST include these presets:
+
+- `OpenAI`.
+- `Anthropic Claude`.
+- `Google Gemini`.
+- `Ollama / Local OpenAI Compatible`.
+- `Custom`.
+
+Manual Base URL setup MUST require an explicit API mode:
+
+- OpenAI Chat Completions compatible with default path `/chat/completions`.
+- OpenAI Responses API compatible with default path `/responses`.
+- Claude Messages API compatible with default path `/messages`.
+- Google Gemini API compatible using native `:generateContent`.
+
+Provider presets MUST fill only default host, API mode, recommended model placeholder, timeout, and short help copy. Presets MUST NOT include API keys. Base URL guidance MUST explain that users should enter the API version level, not a full endpoint path.
+
+Testing a provider connection MUST NOT save provider settings and MUST NOT unlock the agent. Saving MUST require a successful test of the current provider ID, API mode, Base URL, API key, model, and timeout values.
+
+Provider errors SHOULD distinguish missing local fields, authentication failure, network timeout, payload incompatibility, and missing or unavailable model when the backend can observe the difference.
+
+### Localization
+
+MindLattice MUST use `i18next` and `react-i18next` for desktop UI localization.
+
+The first localization pass MUST support these language preferences:
+
+- `system`.
+- `en`.
+- `zh-CN`.
+
+Language preference belongs with interface preferences in Settings. The first pass MUST cover the main agent panel, provider setup, Settings, preview review, and Start Mode user-facing labels.
+
+The app MUST NOT translate user input, raw LLM output, raw logs, or raw provider technical errors. It MAY wrap raw provider details in localized user-facing guidance while preserving technical detail for troubleshooting.
+
 ### Memory
 
 MindLattice MUST use confirmed, inspectable memory rather than hidden long-term chat memory.
@@ -345,7 +384,9 @@ SQLite MUST remain authoritative after import or export. The first release MUST 
 - The user can record a strategy experiment and choose keep, revise, pause, or remove.
 - The user can complete a check-in without streaks, shame language, symptom scoring, or productivity scoring.
 - The graph persists locally in SQLite.
-- The conversational execution agent is available after LLM provider setup and remains confirm-before-write.
+- The conversational execution agent is available after a tested and saved LLM provider setup and remains confirm-before-write.
+- Provider setup supports common presets plus explicit manual API-mode selection without storing preset API keys.
+- Settings exposes language preference for `system`, `en`, and `zh-CN`.
 - Agent proposal validation blocks medical, diagnostic, medication, symptom, treatment, and crisis content from ordinary task suggestions.
 - Preference memory is visible, editable, deletable, and never silently saved from raw chat.
 - Manual Markdown import/export works without making Obsidian a runtime dependency.

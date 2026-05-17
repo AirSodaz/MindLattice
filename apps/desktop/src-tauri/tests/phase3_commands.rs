@@ -911,7 +911,16 @@ fn file_backed_command_runtime_uses_saved_llm_settings_after_reopen() {
     let (base_url, captured_request, server) = start_openai_compatible_server(provider_content);
     {
         let runtime = CommandRuntime::open_file(&db_path).expect("file runtime opens");
-        settings_update_llm(&runtime, &base_url, "test-key", "model-a", 5).expect("settings saved");
+        settings_update_llm(
+            &runtime,
+            "openai",
+            "openai_chat_completions",
+            &base_url,
+            "test-key",
+            "model-a",
+            5,
+        )
+        .expect("settings saved");
     }
 
     let reopened = CommandRuntime::open_file(&db_path).expect("file runtime reopens");
@@ -1082,17 +1091,76 @@ fn command_updates_llm_settings_with_validation() {
 
     let settings = settings_update_llm(
         &runtime,
+        "openai",
+        "openai_chat_completions",
         "https://api.example.test/v1",
         "test-key",
         "model-a",
         30,
     )
     .expect("settings saved");
+    assert_eq!(settings.provider_id.as_str(), "openai");
+    assert_eq!(settings.api_mode.as_str(), "openai_chat_completions");
     assert_eq!(settings.model, "model-a");
 
-    let error = settings_update_llm(&runtime, "", "test-key", "model-a", 30)
+    let error = settings_update_llm(
+        &runtime,
+        "openai",
+        "openai_chat_completions",
+        "",
+        "test-key",
+        "model-a",
+        30,
+    )
         .expect_err("invalid settings return command error");
     assert_eq!(error, CommandError::InvalidLlmSettings);
+}
+
+#[test]
+fn file_backed_runtime_migrates_legacy_llm_settings_to_openai_chat_mode() {
+    let db_path = test_database_path("legacy-llm-settings");
+    let provider_content = r#"{
+      "id": "preview-provider-legacy",
+      "user_visible_summary": "Draft map changes from legacy provider settings.",
+      "proposed_nodes": [
+        {
+          "id": "next-provider-legacy",
+          "kind": "next_action",
+          "title": "Open the draft and write three bullets"
+        }
+      ],
+      "proposed_edges": []
+    }"#;
+    let (base_url, captured_request, server) = start_openai_compatible_server(provider_content);
+    {
+        let repo = MindLatticeRepository::open_file(&db_path).expect("file database opens");
+        repo.migrate().expect("migrations run");
+        repo.upsert_setting("llm.base_url", &base_url)
+            .expect("legacy base url saved");
+        repo.upsert_setting("llm.api_key", "test-key")
+            .expect("legacy api key saved");
+        repo.upsert_setting("llm.model", "model-a")
+            .expect("legacy model saved");
+        repo.upsert_setting("llm.timeout_seconds", "5")
+            .expect("legacy timeout saved");
+    }
+
+    let reopened = CommandRuntime::open_file(&db_path).expect("file runtime reopens");
+    let workspace = workspace_open_default(&reopened).expect("workspace opens after reopen");
+    let response = agent_turn_submit(&reopened, &workspace.id, None, "Break this down")
+        .expect("legacy settings drive the live agent runtime");
+
+    assert_eq!(
+        response.preview.expect("provider preview returned").id,
+        "preview-provider-legacy"
+    );
+    let request_text = captured_request
+        .recv()
+        .expect("server captures migrated provider request");
+    server.join().expect("mock provider server exits");
+    assert!(request_text.starts_with("POST /v1/chat/completions HTTP/1.1"));
+
+    let _ = std::fs::remove_file(db_path);
 }
 
 #[test]
@@ -1101,7 +1169,15 @@ fn command_tests_llm_settings_without_persisting_them() {
     let workspace = workspace_open_default(&runtime).expect("workspace opens");
     let (base_url, captured_request, server) = start_openai_compatible_server(r#"{"ok":true}"#);
 
-    let result = settings_test_llm(&runtime, &base_url, "test-key", "model-a", 5)
+    let result = settings_test_llm(
+        &runtime,
+        "openai",
+        "openai_chat_completions",
+        &base_url,
+        "test-key",
+        "model-a",
+        5,
+    )
         .expect("provider test succeeds");
 
     assert_eq!(result.status, "ok");
@@ -1124,7 +1200,15 @@ fn command_tests_llm_settings_without_persisting_them() {
 fn command_test_llm_settings_validates_local_config_before_network() {
     let runtime = CommandRuntime::in_memory().expect("command runtime opens");
 
-    let error = settings_test_llm(&runtime, "", "test-key", "model-a", 5)
+    let error = settings_test_llm(
+        &runtime,
+        "openai",
+        "openai_chat_completions",
+        "",
+        "test-key",
+        "model-a",
+        5,
+    )
         .expect_err("invalid local config is rejected before provider transport");
 
     assert_eq!(error, CommandError::InvalidLlmSettings);
@@ -1138,7 +1222,15 @@ fn command_test_llm_settings_maps_provider_failure_to_provider_error() {
         r#"{"error":{"message":"bad key"}}"#.to_string(),
     );
 
-    let error = settings_test_llm(&runtime, &base_url, "bad-key", "model-a", 5)
+    let error = settings_test_llm(
+        &runtime,
+        "openai",
+        "openai_chat_completions",
+        &base_url,
+        "bad-key",
+        "model-a",
+        5,
+    )
         .expect_err("provider failure is surfaced without saving settings");
 
     assert_eq!(error, CommandError::Provider);

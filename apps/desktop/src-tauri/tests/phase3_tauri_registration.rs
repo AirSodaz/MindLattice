@@ -181,6 +181,8 @@ fn tauri_wrappers_return_frontend_aligned_llm_test_result_dto() {
 
     let error = settings_test_llm(
         runtime,
+        "openai".to_string(),
+        "openai_chat_completions".to_string(),
         String::new(),
         "test-key".to_string(),
         "model-a".to_string(),

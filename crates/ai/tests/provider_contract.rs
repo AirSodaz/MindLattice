@@ -7,12 +7,15 @@ use std::{
 };
 
 use mindlattice_ai::provider::{
-    LlmError, LlmProvider, LlmProviderConfig, LlmStructuredRequest, OpenAiCompatibleProvider,
+    build_llm_provider, LlmApiMode, LlmError, LlmProvider, LlmProviderConfig,
+    LlmProviderId, LlmStructuredRequest, OpenAiCompatibleProvider,
 };
 
 #[test]
 fn provider_config_requires_base_url_key_model_and_timeout() {
     let config = LlmProviderConfig {
+        provider_id: LlmProviderId::OpenAi,
+        api_mode: LlmApiMode::OpenAiChatCompletions,
         base_url: "https://api.example.test/v1".to_string(),
         api_key: "test-key".to_string(),
         model: "model-a".to_string(),
@@ -49,6 +52,8 @@ fn openai_compatible_provider_posts_structured_chat_completion_request() {
         r#"{"choices":[{"message":{"content":"{\"preview_id\":\"p1\"}"},"finish_reason":"stop"}]}"#;
     let (base_url, captured_request, server) = start_json_server("200 OK", response_body);
     let provider = OpenAiCompatibleProvider::new(LlmProviderConfig {
+        provider_id: LlmProviderId::OpenAi,
+        api_mode: LlmApiMode::OpenAiChatCompletions,
         base_url,
         api_key: "test-key".to_string(),
         model: "model-a".to_string(),
@@ -84,6 +89,92 @@ fn openai_compatible_provider_posts_structured_chat_completion_request() {
     assert!(request_text.contains("Break down the grant application."));
     assert!(request_text.contains(r#"{\"type\":\"object\"}"#));
     assert!(request_text.contains(r#""response_format":{"type":"json_object"}"#));
+}
+
+#[test]
+fn provider_factory_dispatches_openai_responses_api_mode() {
+    let response_body = r#"{"output":[{"content":[{"type":"output_text","text":"{\"preview_id\":\"p1\"}"}]}]}"#;
+    let (base_url, captured_request, server) = start_json_server("200 OK", response_body);
+    let provider = build_llm_provider(LlmProviderConfig {
+        api_mode: LlmApiMode::OpenAiResponses,
+        ..complete_config(base_url)
+    })
+    .expect("responses provider config builds");
+
+    let response = provider
+        .complete_structured(complete_request())
+        .expect("responses payload is parsed");
+
+    assert_eq!(response.content, r#"{"preview_id":"p1"}"#);
+    let request_text = captured_request
+        .recv()
+        .expect("server captures responses request");
+    server.join().expect("mock server exits");
+    assert!(request_text.starts_with("POST /v1/responses HTTP/1.1"));
+    assert!(request_text.contains(r#""model":"model-a""#));
+    assert!(request_text.contains(r#""input":"#));
+    assert!(request_text.contains(r#""text":{"format":{"type":"json_object"}}"#));
+}
+
+#[test]
+fn provider_factory_dispatches_claude_messages_api_mode() {
+    let response_body =
+        r#"{"content":[{"type":"text","text":"{\"preview_id\":\"claude\"}"}]}"#;
+    let (base_url, captured_request, server) = start_json_server("200 OK", response_body);
+    let provider = build_llm_provider(LlmProviderConfig {
+        provider_id: LlmProviderId::AnthropicClaude,
+        api_mode: LlmApiMode::ClaudeMessages,
+        ..complete_config(base_url)
+    })
+    .expect("claude provider config builds");
+
+    let response = provider
+        .complete_structured(complete_request())
+        .expect("claude payload is parsed");
+
+    assert_eq!(response.content, r#"{"preview_id":"claude"}"#);
+    let request_text = captured_request
+        .recv()
+        .expect("server captures claude request");
+    server.join().expect("mock server exits");
+    assert!(request_text.starts_with("POST /v1/messages HTTP/1.1"));
+    assert!(request_text
+        .to_ascii_lowercase()
+        .contains("x-api-key: test-key"));
+    assert!(request_text
+        .to_ascii_lowercase()
+        .contains("anthropic-version: 2023-06-01"));
+    assert!(request_text.contains(r#""system":"Follow the safety policy.""#));
+    assert!(request_text.contains(r#""max_tokens":4096"#));
+}
+
+#[test]
+fn provider_factory_dispatches_gemini_native_api_mode() {
+    let response_body = r#"{"candidates":[{"content":{"parts":[{"text":"{\"preview_id\":\"gemini\"}"}]},"finishReason":"STOP"}]}"#;
+    let (base_url, captured_request, server) = start_json_server("200 OK", response_body);
+    let base_url = base_url.replace("/v1", "/v1beta");
+    let provider = build_llm_provider(LlmProviderConfig {
+        provider_id: LlmProviderId::GoogleGemini,
+        api_mode: LlmApiMode::GeminiGenerateContent,
+        ..complete_config(base_url)
+    })
+    .expect("gemini provider config builds");
+
+    let response = provider
+        .complete_structured(complete_request())
+        .expect("gemini payload is parsed");
+
+    assert_eq!(response.content, r#"{"preview_id":"gemini"}"#);
+    let request_text = captured_request
+        .recv()
+        .expect("server captures gemini request");
+    server.join().expect("mock server exits");
+    assert!(request_text.starts_with("POST /v1beta/models/model-a:generateContent HTTP/1.1"));
+    assert!(request_text
+        .to_ascii_lowercase()
+        .contains("x-goog-api-key: test-key"));
+    assert!(request_text.contains(r#""responseMimeType":"application/json""#));
+    assert!(request_text.contains("Break down the grant application."));
 }
 
 #[test]
@@ -165,6 +256,8 @@ fn openai_compatible_provider_enforces_request_timeout() {
 
 fn complete_config(base_url: String) -> LlmProviderConfig {
     LlmProviderConfig {
+        provider_id: LlmProviderId::OpenAi,
+        api_mode: LlmApiMode::OpenAiChatCompletions,
         base_url,
         api_key: "test-key".to_string(),
         model: "model-a".to_string(),

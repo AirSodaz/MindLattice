@@ -1,19 +1,25 @@
+import { useTranslation } from 'react-i18next';
+
+import '../../../shared/i18n/i18n';
+
 export type EmptyContextPanelProps = {
   isLlmConfigured: boolean;
   onConfigureLlm: () => void;
 };
 
 export function EmptyContextPanel({ isLlmConfigured, onConfigureLlm }: EmptyContextPanelProps) {
+  const { t } = useTranslation('common');
+
   return (
-    <section className="empty-context-surface" aria-label="Empty turn context">
+    <section className="empty-context-surface" aria-label={t('empty.aria')}>
       <div>
-        <span className="eyebrow">Turn context</span>
-        <h2>{isLlmConfigured ? 'Ready' : 'Setup required'}</h2>
+        <span className="eyebrow">{t('empty.eyebrow')}</span>
+        <h2>{isLlmConfigured ? t('common.ready') : t('common.setupRequired')}</h2>
       </div>
-      <p>{isLlmConfigured ? 'Tell me what feels messy right now.' : 'Configure LLM to use the execution agent.'}</p>
+      <p>{isLlmConfigured ? t('agent.placeholder.ready') : t('agent.configureLlmDescription')}</p>
       {!isLlmConfigured ? (
         <button onClick={onConfigureLlm} type="button">
-          Configure LLM
+          {t('agent.configureLlm')}
         </button>
       ) : null}
     </section>

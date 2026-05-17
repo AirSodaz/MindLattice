@@ -313,6 +313,8 @@ pub struct CommandCheckInDto {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandLlmSettingsDto {
+    pub provider_id: String,
+    pub api_mode: String,
     pub base_url: String,
     pub api_key: String,
     pub model: String,
@@ -681,26 +683,46 @@ pub fn check_in_list(
 
 pub fn settings_update_llm(
     runtime: SharedCommandRuntime,
+    provider_id: String,
+    api_mode: String,
     base_url: String,
     api_key: String,
     model: String,
     timeout_seconds: u64,
 ) -> Result<CommandLlmSettingsDto, CommandErrorDto> {
     let runtime = runtime.lock().map_err(|_| CommandError::Repository)?;
-    commands::settings_update_llm(&runtime, &base_url, &api_key, &model, timeout_seconds)
+    commands::settings_update_llm(
+        &runtime,
+        &provider_id,
+        &api_mode,
+        &base_url,
+        &api_key,
+        &model,
+        timeout_seconds,
+    )
         .map(CommandLlmSettingsDto::from)
         .map_err(Into::into)
 }
 
 pub fn settings_test_llm(
     runtime: SharedCommandRuntime,
+    provider_id: String,
+    api_mode: String,
     base_url: String,
     api_key: String,
     model: String,
     timeout_seconds: u64,
 ) -> Result<CommandLlmTestResultDto, CommandErrorDto> {
     let runtime = runtime.lock().map_err(|_| CommandError::Repository)?;
-    commands::settings_test_llm(&runtime, &base_url, &api_key, &model, timeout_seconds)
+    commands::settings_test_llm(
+        &runtime,
+        &provider_id,
+        &api_mode,
+        &base_url,
+        &api_key,
+        &model,
+        timeout_seconds,
+    )
         .map(CommandLlmTestResultDto::from)
         .map_err(Into::into)
 }
@@ -936,6 +958,8 @@ impl From<CheckIn> for CommandCheckInDto {
 impl From<LlmProviderConfig> for CommandLlmSettingsDto {
     fn from(value: LlmProviderConfig) -> Self {
         Self {
+            provider_id: value.provider_id.as_str().to_string(),
+            api_mode: value.api_mode.as_str().to_string(),
             base_url: value.base_url,
             api_key: value.api_key,
             model: value.model,

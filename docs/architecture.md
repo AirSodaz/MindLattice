@@ -80,7 +80,7 @@ MindLattice/
   docs/
 ```
 
-The current repository contains the first Rust workspace scaffold for `crates/core`, `crates/storage`, `crates/ai`, `crates/agent`, `crates/vault`, and `apps/desktop/src-tauri`, plus a React/Vite desktop UI scaffold under `apps/desktop/src`. `crates/ai` includes an OpenAI-compatible chat-completions transport, and the desktop command runtime can load saved provider settings for live agent turns.
+The current repository contains the first Rust workspace scaffold for `crates/core`, `crates/storage`, `crates/ai`, `crates/agent`, `crates/vault`, and `apps/desktop/src-tauri`, plus a React/Vite desktop UI scaffold under `apps/desktop/src`. `crates/ai` includes API-mode-specific provider transports for OpenAI Chat Completions compatible, OpenAI Responses compatible, Claude Messages compatible, and Google Gemini native `generateContent`; the desktop command runtime can load saved provider settings for live agent turns.
 
 ## Boundaries
 
@@ -162,6 +162,21 @@ SQLite is the source of truth for the first release. The UI MUST receive storage
 ### LLM Adapter
 
 LLM integration MUST be pluggable and required for the primary conversational execution agent. If no LLM provider is configured, the app MAY show setup, settings, existing stored data, and manual data review surfaces, but it SHOULD NOT promise the primary execution-scaffolding workflow.
+
+`LlmSettings` MUST carry the provider and transport shape explicitly:
+
+- `provider_id`
+- `api_mode`
+- `base_url`
+- `api_key`
+- `model`
+- `timeout_seconds`
+
+Supported first-release provider IDs are `openai`, `anthropic_claude`, `google_gemini`, `ollama_local`, and `custom`. Supported first-release API modes are `openai_chat_completions`, `openai_responses`, `claude_messages`, and `gemini_generate_content`.
+
+The frontend MAY apply provider presets, but it MUST NOT assemble provider-specific request payloads or endpoint paths. Rust adapters in `crates/ai` own URL composition, headers, payload shape, and response parsing for each API mode. Claude adapters MUST provide a default `anthropic-version` header internally. Google Gemini native adapters MUST call model `:generateContent` endpoints and authenticate with the configured key.
+
+Legacy saved settings without `provider_id` or `api_mode` MUST migrate to `openai` plus `openai_chat_completions` so existing OpenAI-compatible settings remain usable.
 
 ### Vault Adapter
 
@@ -470,14 +485,23 @@ pub trait LlmProvider {
 }
 ```
 
-The first adapter SHOULD support:
+Provider adapters SHOULD support:
 
+- `provider_id`
+- `api_mode`
 - `base_url`
 - `api_key`
 - `model`
 - request timeout
 
 The current crate implementation uses the same structured provider contract with a synchronous blocking transport until the runtime boundary is ready for async provider execution.
+
+First-release API modes MUST map to these endpoint defaults:
+
+- `openai_chat_completions`: append `/chat/completions`.
+- `openai_responses`: append `/responses`.
+- `claude_messages`: append `/messages`.
+- `gemini_generate_content`: append `/models/{model}:generateContent`.
 
 Returned agent outputs MUST be validated before display:
 

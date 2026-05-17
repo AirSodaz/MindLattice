@@ -1,8 +1,17 @@
 import { Moon, Sun } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { CommandSupportCategory } from '../../shared/api/commandClient';
+import '../../shared/i18n/i18n';
+import type { LanguagePreference } from '../../shared/i18n/i18n';
 import type { ThemePreference } from '../workbench/workbenchModel';
+import type {
+  LlmApiMode,
+  LlmApiModeOption,
+  LlmProviderId,
+  LlmProviderPreset,
+} from './llmProviderRegistry';
 import type { SettingsProfile, SettingsSection } from './settingsModel';
 
 type ThemeOption = {
@@ -15,6 +24,11 @@ type SupportCategoryOption = {
   label: string;
 };
 
+type LanguageOption = {
+  value: LanguagePreference;
+  label: string;
+};
+
 export type SettingsPanelProps = {
   adultContextOptions: string[];
   executionDifficultyOptions: string[];
@@ -22,9 +36,15 @@ export type SettingsPanelProps = {
   isLlmSaving: boolean;
   isOnboardingSaving: boolean;
   llmApiKey: string;
+  llmApiMode: LlmApiMode;
+  llmApiModeOptions: LlmApiModeOption[];
   llmBaseUrl: string;
   llmModel: string;
+  llmProviderId: LlmProviderId;
+  llmProviderPresets: LlmProviderPreset[];
   llmTimeoutSeconds: number;
+  languageOptions: LanguageOption[];
+  languagePreference: LanguagePreference;
   onboardingContexts: string[];
   onboardingDifficulties: string[];
   onboardingSupportCategories: CommandSupportCategory[];
@@ -39,9 +59,12 @@ export type SettingsPanelProps = {
   themeOptions: ThemeOption[];
   themePreference: ThemePreference;
   onLlmApiKeyChange: (value: string) => void;
+  onLlmApiModeChange: (value: LlmApiMode) => void;
   onLlmBaseUrlChange: (value: string) => void;
   onLlmModelChange: (value: string) => void;
+  onLlmProviderPresetChange: (value: LlmProviderId) => void;
   onLlmTimeoutSecondsChange: (value: number) => void;
+  onLanguagePreferenceChange: (value: LanguagePreference) => void;
   onOnboardingContextsChange: (value: string[]) => void;
   onOnboardingDifficultiesChange: (value: string[]) => void;
   onOnboardingSupportCategoriesChange: (value: CommandSupportCategory[]) => void;
@@ -55,16 +78,25 @@ export function SettingsPanel({
   isLlmSaving,
   isOnboardingSaving,
   llmApiKey,
+  llmApiMode,
+  llmApiModeOptions,
   llmBaseUrl,
   llmModel,
+  llmProviderId,
+  llmProviderPresets,
   llmTimeoutSeconds,
+  languageOptions,
+  languagePreference,
   onboardingContexts,
   onboardingDifficulties,
   onboardingSupportCategories,
   onLlmApiKeyChange,
+  onLlmApiModeChange,
   onLlmBaseUrlChange,
   onLlmModelChange,
+  onLlmProviderPresetChange,
   onLlmTimeoutSecondsChange,
+  onLanguagePreferenceChange,
   onOnboardingContextsChange,
   onOnboardingDifficultiesChange,
   onOnboardingSupportCategoriesChange,
@@ -79,6 +111,7 @@ export function SettingsPanel({
   themeOptions,
   themePreference,
 }: SettingsPanelProps) {
+  const { t } = useTranslation('common');
   const handleProviderSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSaveLlmSettings();
@@ -89,22 +122,22 @@ export function SettingsPanel({
   };
 
   return (
-    <section className="settings-surface" aria-label="Settings">
+    <section className="settings-surface" aria-label={t('settings.aria')}>
       <div>
-        <span className="eyebrow">Settings</span>
-        <h2>Agent setup and local preferences</h2>
+        <span className="eyebrow">{t('settings.eyebrow')}</span>
+        <h2>{t('settings.title')}</h2>
       </div>
-      <div className="settings-status-grid" aria-label="Settings readiness">
+      <div className="settings-status-grid" aria-label={t('settings.readiness')}>
         {settingsSections.map((section) => (
           <article className={`settings-status settings-status-${section.status}`} key={section.id}>
             <div>
               <h3>{section.title}</h3>
               <span>
                 {section.status === 'needs_setup'
-                  ? 'Needs setup'
+                  ? t('settings.status.needsSetup')
                   : section.status === 'always_on'
-                    ? 'Always on'
-                    : 'Ready'}
+                    ? t('settings.status.alwaysOn')
+                    : t('settings.status.ready')}
               </span>
             </div>
             <p>{section.description}</p>
@@ -113,19 +146,48 @@ export function SettingsPanel({
       </div>
       <form className="settings-form" onSubmit={handleProviderSubmit}>
         <div>
-          <span className="eyebrow">Agent Provider</span>
-          <h3>Required LLM connection</h3>
+          <span className="eyebrow">{t('settings.provider.eyebrow')}</span>
+          <h3>{t('settings.provider.title')}</h3>
         </div>
         <label>
-          Base URL
+          {t('provider.preset')}
+          <select
+            disabled={isLlmSaving || isLlmTesting}
+            onChange={(event) => onLlmProviderPresetChange(event.target.value as LlmProviderId)}
+            value={llmProviderId}
+          >
+            {llmProviderPresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t('provider.apiMode')}
+          <select
+            disabled={isLlmSaving || isLlmTesting}
+            onChange={(event) => onLlmApiModeChange(event.target.value as LlmApiMode)}
+            value={llmApiMode}
+          >
+            {llmApiModeOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t('provider.baseUrl')}
           <input
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmBaseUrlChange(event.target.value)}
             value={llmBaseUrl}
           />
+          <span className="field-help">{t('provider.baseUrlHelp')}</span>
         </label>
         <label>
-          API key
+          {t('provider.apiKey')}
           <input
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmApiKeyChange(event.target.value)}
@@ -134,7 +196,7 @@ export function SettingsPanel({
           />
         </label>
         <label>
-          Model
+          {t('provider.model')}
           <input
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmModelChange(event.target.value)}
@@ -143,7 +205,7 @@ export function SettingsPanel({
           />
         </label>
         <label>
-          Timeout
+          {t('provider.timeout')}
           <input
             disabled={isLlmSaving || isLlmTesting}
             min={5}
@@ -163,17 +225,17 @@ export function SettingsPanel({
             onClick={onTestLlmSettings}
             type="button"
           >
-            Test connection
+            {t('provider.testConnection')}
           </button>
           <button disabled={isLlmSaving || isLlmTesting || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()} type="submit">
-            Save provider
+            {t('provider.saveProvider')}
           </button>
         </div>
       </form>
       <form className="settings-form" onSubmit={handleProfileSubmit}>
         <div>
-          <span className="eyebrow">Local Profile</span>
-          <h3>Support matching defaults</h3>
+          <span className="eyebrow">{t('settings.profile.eyebrow')}</span>
+          <h3>{t('settings.profile.title')}</h3>
         </div>
         <div className="setup-options" aria-label="Adult contexts">
           {adultContextOptions.map((context) => (
@@ -214,7 +276,7 @@ export function SettingsPanel({
           ))}
         </div>
         <label>
-          Preferred support
+          {t('settings.profile.preferredSupport')}
           <select
             disabled={isOnboardingSaving}
             onChange={(event) =>
@@ -224,7 +286,7 @@ export function SettingsPanel({
             }
             value={onboardingSupportCategories[0] ?? ''}
           >
-            <option value="">No preference yet</option>
+            <option value="">{t('settings.profile.noPreference')}</option>
             {supportCategoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -233,22 +295,35 @@ export function SettingsPanel({
           </select>
         </label>
         <button disabled={isOnboardingSaving} type="submit">
-          Save profile
+          {t('settings.profile.save')}
         </button>
       </form>
       <div className="settings-form settings-boundary" aria-label="Safety boundary">
         <div>
-          <span className="eyebrow">Safety Boundary</span>
-          <h3>Low-risk execution support</h3>
+          <span className="eyebrow">{t('settings.safety.eyebrow')}</span>
+          <h3>{t('settings.safety.title')}</h3>
         </div>
-        <p>No diagnosis, treatment, medication guidance, symptom scoring, clinical follow-up, or claims to reduce ADHD symptoms.</p>
+        <p>{t('settings.safety.description')}</p>
       </div>
       <div className="settings-form" aria-label="Interface preferences">
         <div>
-          <span className="eyebrow">Interface</span>
-          <h3>Theme preference</h3>
+          <span className="eyebrow">{t('settings.interface.eyebrow')}</span>
+          <h3>{t('settings.interface.title')}</h3>
         </div>
-        <div className="theme-control settings-theme-control" aria-label="Theme preference">
+        <label>
+          {t('settings.language.title')}
+          <select
+            onChange={(event) => onLanguagePreferenceChange(event.target.value as LanguagePreference)}
+            value={languagePreference}
+          >
+            {languageOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="theme-control settings-theme-control" aria-label={t('settings.theme.title')}>
           {themeOptions.map((option) => (
             <button
               className={themePreference === option.value ? 'is-active' : ''}

@@ -10,8 +10,8 @@ use mindlattice_agent::tools::{
     initial_tool_registry, AgentToolInput, AgentToolOutput, AgentToolRouter,
 };
 use mindlattice_ai::provider::{
-    LlmConfigError, LlmError, LlmProvider, LlmProviderConfig, LlmStructuredRequest,
-    OpenAiCompatibleProvider,
+    build_llm_provider, LlmApiMode, LlmConfigError, LlmError, LlmProvider, LlmProviderConfig,
+    LlmProviderId, LlmStructuredRequest,
 };
 use mindlattice_core::domain::{
     AgentThread, AgentTurn, AiProposalRecord, AiProposalStatus, AttentionSession,
@@ -74,7 +74,7 @@ impl CommandRuntime {
         let Some(config) = self.saved_llm_config()? else {
             return Ok(None);
         };
-        let provider = OpenAiCompatibleProvider::new(config)
+        let provider = build_llm_provider(config)
             .map_err(|_error: LlmConfigError| CommandError::InvalidLlmSettings)?;
         Ok(Some(Arc::new(StructuredLlmProvider::new(provider))))
     }
@@ -105,7 +105,19 @@ impl CommandRuntime {
         let timeout_seconds = timeout_text
             .parse::<u64>()
             .map_err(|_| CommandError::InvalidLlmSettings)?;
+        let provider_id = match self.repo.setting("llm.provider_id")? {
+            Some(value) => LlmProviderId::from_str(&value)
+                .ok_or(CommandError::InvalidLlmSettings)?,
+            None => LlmProviderId::OpenAi,
+        };
+        let api_mode = match self.repo.setting("llm.api_mode")? {
+            Some(value) => LlmApiMode::from_str(&value)
+                .ok_or(CommandError::InvalidLlmSettings)?,
+            None => LlmApiMode::OpenAiChatCompletions,
+        };
         let config = LlmProviderConfig {
+            provider_id,
+            api_mode,
             base_url,
             api_key,
             model,
@@ -690,12 +702,19 @@ pub fn check_in_list(
 
 pub fn settings_update_llm(
     runtime: &CommandRuntime,
+    provider_id: &str,
+    api_mode: &str,
     base_url: &str,
     api_key: &str,
     model: &str,
     timeout_seconds: u64,
 ) -> Result<LlmProviderConfig, CommandError> {
+    let provider_id =
+        LlmProviderId::from_str(provider_id).ok_or(CommandError::InvalidLlmSettings)?;
+    let api_mode = LlmApiMode::from_str(api_mode).ok_or(CommandError::InvalidLlmSettings)?;
     let config = LlmProviderConfig {
+        provider_id,
+        api_mode,
         base_url: base_url.to_string(),
         api_key: api_key.to_string(),
         model: model.to_string(),
@@ -704,6 +723,12 @@ pub fn settings_update_llm(
     config
         .validate()
         .map_err(|_error: LlmConfigError| CommandError::InvalidLlmSettings)?;
+    runtime
+        .repo
+        .upsert_setting("llm.provider_id", config.provider_id.as_str())?;
+    runtime
+        .repo
+        .upsert_setting("llm.api_mode", config.api_mode.as_str())?;
     runtime
         .repo
         .upsert_setting("llm.base_url", &config.base_url)?;
@@ -719,12 +744,19 @@ pub fn settings_update_llm(
 
 pub fn settings_test_llm(
     _runtime: &CommandRuntime,
+    provider_id: &str,
+    api_mode: &str,
     base_url: &str,
     api_key: &str,
     model: &str,
     timeout_seconds: u64,
 ) -> Result<LlmProviderTestResult, CommandError> {
+    let provider_id =
+        LlmProviderId::from_str(provider_id).ok_or(CommandError::InvalidLlmSettings)?;
+    let api_mode = LlmApiMode::from_str(api_mode).ok_or(CommandError::InvalidLlmSettings)?;
     let config = LlmProviderConfig {
+        provider_id,
+        api_mode,
         base_url: base_url.to_string(),
         api_key: api_key.to_string(),
         model: model.to_string(),
@@ -733,7 +765,7 @@ pub fn settings_test_llm(
     config
         .validate()
         .map_err(|_error: LlmConfigError| CommandError::InvalidLlmSettings)?;
-    let provider = OpenAiCompatibleProvider::new(config.clone())
+    let provider = build_llm_provider(config.clone())
         .map_err(|_error: LlmConfigError| CommandError::InvalidLlmSettings)?;
 
     provider

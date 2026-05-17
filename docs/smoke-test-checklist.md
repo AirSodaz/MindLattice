@@ -13,7 +13,7 @@ Use this checklist after `cargo test --workspace`, `corepack pnpm test`, `corepa
 
 ## Automated Smoke Evidence
 
-- `corepack pnpm --dir apps/desktop test` includes component-level server-render coverage for the Settings surface, model/controller smoke coverage for provider-readiness gating, preview review, advanced map behavior, support adoption, strategy experiments, Start Mode, follow-up prompts, memory review, and Vault import/export command flow, plus a dependency-light MVP business smoke flow for setup, capture, preview acceptance, map editing, support adoption, Start Mode, check-in, memory review, and Vault import.
+- `corepack pnpm --dir apps/desktop test` includes component-level server-render coverage for the Settings surface, provider preset and API-mode controls, language preference controls, model/controller smoke coverage for provider-readiness gating, preview review, advanced map behavior, support adoption, strategy experiments, Start Mode, follow-up prompts, memory review, and Vault import/export command flow, plus a dependency-light MVP business smoke flow for setup, capture, preview acceptance, map editing, support adoption, Start Mode, check-in, memory review, and Vault import.
 - `corepack pnpm smoke:e2e` starts or reuses the Vite desktop UI and drives a headless Chrome/Edge browser through first load, provider setup test/save, Settings profile setup, agent preview/revision/acceptance, manual node and edge editing, support adoption, strategy experiment review, check-in and memory review, Vault import, Start Mode entry/return, and browser console warning/error checks.
 - Browser smoke on `http://127.0.0.1:5173/` verifies the app loads with title `MindLattice`, defaults to a stable two-pane agent plus turn-context workbench, disables the composer before provider setup, opens provider setup through `Configure LLM`, and reports no browser console warnings or errors.
 - Windows package build produced `target/release/mindlattice-desktop.exe`, `target/release/bundle/msi/MindLattice_0.1.0_x64_en-US.msi`, and `target/release/bundle/nsis/MindLattice_0.1.0_x64-setup.exe`.
@@ -26,8 +26,13 @@ Use this checklist after `cargo test --workspace`, `corepack pnpm test`, `corepa
 - Confirm the agent composer is disabled before an LLM provider is configured.
 - Confirm `Configure LLM` opens provider setup in the right turn context pane.
 - Save a local profile with at least one adult context, one execution difficulty, and one preferred support category.
-- Test and save LLM provider settings with `base_url`, `api_key`, `model`, and timeout.
+- Select each provider preset and confirm it fills only default host, API mode, recommended model placeholder, and timeout.
+- For `Custom`, choose each API mode and confirm Base URL remains manually editable.
+- Confirm provider presets never fill an API key.
+- Test and save LLM provider settings with provider ID, API mode, `base_url`, `api_key`, `model`, and timeout.
+- Confirm testing does not unlock the agent until the same settings are saved.
 - Confirm the agent composer routes messages into the agent preview flow after provider setup succeeds.
+- Switch language preference between `system`, `en`, and `zh-CN`, then confirm provider setup, Settings, agent panel, preview review, and Start Mode labels update while user-entered text and raw provider details are not translated.
 
 ## Agent and Map
 

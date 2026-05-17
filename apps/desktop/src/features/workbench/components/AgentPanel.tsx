@@ -1,6 +1,8 @@
 import { BrainCircuit, Send } from 'lucide-react';
 import type { FormEvent, RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 
+import '../../../shared/i18n/i18n';
 import type { WorkbenchModel } from '../workbenchModel';
 
 export type AgentPanelProps = {
@@ -26,6 +28,7 @@ export function AgentPanel({
   workspaceReady,
   workbench,
 }: AgentPanelProps) {
+  const { t } = useTranslation('common');
   const composerDisabled = isAgentBusy || !workspaceReady || !isLlmConfigured;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -40,27 +43,27 @@ export function AgentPanel({
     <aside className="agent-panel" aria-label="Conversational execution agent">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">MindLattice</span>
-          <h1>Execution agent</h1>
+          <span className="eyebrow">{t('common.mindLattice')}</span>
+          <h1>{t('agent.title')}</h1>
         </div>
         <BrainCircuit aria-hidden="true" size={22} />
       </div>
 
       {!isLlmConfigured ? (
         <div className="agent-setup-card">
-          <span className="eyebrow">Setup required</span>
-          <h2>Configure LLM</h2>
-          <p>Configure LLM to use the execution agent.</p>
+          <span className="eyebrow">{t('agent.setupRequired')}</span>
+          <h2>{t('agent.configureLlm')}</h2>
+          <p>{t('agent.configureLlmDescription')}</p>
           <button onClick={onConfigureLlm} type="button">
-            Configure LLM
+            {t('agent.configureLlm')}
           </button>
         </div>
       ) : null}
 
-      <div className="message-list" aria-label="Agent thread">
+      <div className="message-list" aria-label={t('agent.threadLabel')}>
         {workbench.messages.map((message) => (
           <article className={`message message-${message.sender}`} key={message.id}>
-            <span>{message.sender === 'agent' ? 'Agent' : 'You'}</span>
+            <span>{message.sender === 'agent' ? t('agent.senderAgent') : t('agent.senderUser')}</span>
             <p>{message.body}</p>
           </article>
         ))}
@@ -68,19 +71,19 @@ export function AgentPanel({
 
       <form className="composer" onSubmit={handleSubmit}>
         <textarea
-          aria-label="Message the execution agent"
+          aria-label={t('agent.messageLabel')}
           disabled={composerDisabled}
           onChange={(event) => onComposerChange(event.target.value)}
           placeholder={
             isLlmConfigured
-              ? 'Tell me what feels messy right now.'
-              : 'Configure LLM to unlock the agent.'
+              ? t('agent.placeholder.ready')
+              : t('agent.placeholder.needsLlm')
           }
           ref={composerInputRef}
           value={composerValue}
         />
         <button
-          aria-label="Send message"
+          aria-label={t('agent.send')}
           disabled={composerDisabled || !composerValue.trim()}
           type="submit"
         >

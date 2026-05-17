@@ -220,8 +220,22 @@ test('Tauri command client invokes full shell command surface for phase-one data
   await client.agentMemoryDelete('workspace-1', 'memory-1');
   await client.checkInCreate('workspace-1', 'next-1', 'Started with the smallest visible step.');
   await client.checkInList('workspace-1');
-  await client.settingsTestLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
-  await client.settingsUpdateLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
+  await client.settingsTestLlm(
+    'ollama_local',
+    'openai_chat_completions',
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
+  await client.settingsUpdateLlm(
+    'ollama_local',
+    'openai_chat_completions',
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
 
   assert.deepEqual(calls, [
     { command: 'node_create', args: { workspaceId: 'workspace-1', kind: 'task', title: 'Draft outline' } },
@@ -258,6 +272,8 @@ test('Tauri command client invokes full shell command surface for phase-one data
     {
       command: 'settings_test_llm',
       args: {
+        providerId: 'ollama_local',
+        apiMode: 'openai_chat_completions',
         baseUrl: 'http://localhost:11434/v1',
         apiKey: 'local-key',
         model: 'llama3.2',
@@ -267,6 +283,8 @@ test('Tauri command client invokes full shell command surface for phase-one data
     {
       command: 'settings_update_llm',
       args: {
+        providerId: 'ollama_local',
+        apiMode: 'openai_chat_completions',
         baseUrl: 'http://localhost:11434/v1',
         apiKey: 'local-key',
         model: 'llama3.2',
@@ -280,7 +298,14 @@ test('mock provider test succeeds without saving LLM settings or enabling agent 
   const client = createMockCommandClient();
   const workspace = await client.workspaceOpenDefault();
 
-  const result = await client.settingsTestLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
+  const result = await client.settingsTestLlm(
+    'ollama_local',
+    'openai_chat_completions',
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
 
   assert.deepEqual(result, {
     status: 'ok',
@@ -297,9 +322,39 @@ test('mock provider test validates local settings', async () => {
   const client = createMockCommandClient();
 
   await assert.rejects(
-    () => client.settingsTestLlm('', 'local-key', 'llama3.2', 30),
+    () => client.settingsTestLlm('custom', '', '', 'local-key', 'llama3.2', 30),
     /Complete provider settings before testing/,
   );
+});
+
+test('mock LLM settings keep explicit provider and API mode', async () => {
+  const client = createMockCommandClient();
+
+  await client.settingsTestLlm(
+    'google_gemini',
+    'gemini_generate_content',
+    'https://generativelanguage.googleapis.com/v1beta',
+    'gemini-key',
+    'gemini-2.5-flash',
+    30,
+  );
+  const saved = await client.settingsUpdateLlm(
+    'google_gemini',
+    'gemini_generate_content',
+    'https://generativelanguage.googleapis.com/v1beta',
+    'gemini-key',
+    'gemini-2.5-flash',
+    30,
+  );
+
+  assert.deepEqual(saved, {
+    providerId: 'google_gemini',
+    apiMode: 'gemini_generate_content',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    apiKey: 'gemini-key',
+    model: 'gemini-2.5-flash',
+    timeoutSeconds: 30,
+  });
 });
 
 test('mock vault import and export use Markdown-shaped file DTOs', async () => {
@@ -410,5 +465,12 @@ test('Tauri command client exports Markdown files into a selected Vault folder',
 });
 
 async function configureMockLlm(client) {
-  await client.settingsUpdateLlm('http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
+  await client.settingsUpdateLlm(
+    'ollama_local',
+    'openai_chat_completions',
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
 }

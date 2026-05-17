@@ -295,6 +295,8 @@ pub fn check_in_list(
 #[tauri::command]
 pub fn settings_update_llm(
     runtime: tauri::State<'_, SharedCommandRuntime>,
+    provider_id: String,
+    api_mode: String,
     base_url: String,
     api_key: String,
     model: String,
@@ -302,6 +304,8 @@ pub fn settings_update_llm(
 ) -> Result<CommandLlmSettingsDto, CommandErrorDto> {
     tauri_api::settings_update_llm(
         runtime.inner().clone(),
+        provider_id,
+        api_mode,
         base_url,
         api_key,
         model,
@@ -312,6 +316,8 @@ pub fn settings_update_llm(
 #[tauri::command]
 pub fn settings_test_llm(
     runtime: tauri::State<'_, SharedCommandRuntime>,
+    provider_id: String,
+    api_mode: String,
     base_url: String,
     api_key: String,
     model: String,
@@ -319,6 +325,8 @@ pub fn settings_test_llm(
 ) -> Result<CommandLlmTestResultDto, CommandErrorDto> {
     tauri_api::settings_test_llm(
         runtime.inner().clone(),
+        provider_id,
+        api_mode,
         base_url,
         api_key,
         model,

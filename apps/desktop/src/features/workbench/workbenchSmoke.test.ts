@@ -36,8 +36,26 @@ test('mvp smoke flow covers setup, capture, preview, map editing, support, start
     ['task initiation'],
     ['task_structure'],
   );
-  state = await testLlmSettings(client, state, 'http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
-  state = await saveLlmSettings(client, state, 'http://localhost:11434/v1', 'local-key', 'llama3.2', 30);
+  state = await testLlmSettings(
+    client,
+    state,
+    'ollama_local',
+    'openai_chat_completions',
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
+  state = await saveLlmSettings(
+    client,
+    state,
+    'ollama_local',
+    'openai_chat_completions',
+    'http://localhost:11434/v1',
+    'local-key',
+    'llama3.2',
+    30,
+  );
   assert.equal(state.contextProfile.llmProviderSetupState, 'configured');
 
   state = await createFocusTask(client, state, 'Prepare weekly launch note');

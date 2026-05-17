@@ -114,12 +114,16 @@ export type CommandClient = {
   checkInCreate: (workspaceId: string, nodeId: string | null, body: string) => Promise<CommandCheckIn>;
   checkInList: (workspaceId: string) => Promise<CommandCheckIn[]>;
   settingsTestLlm: (
+    providerId: string,
+    apiMode: string,
     baseUrl: string,
     apiKey: string,
     model: string,
     timeoutSeconds: number,
   ) => Promise<CommandLlmTestResult>;
   settingsUpdateLlm: (
+    providerId: string,
+    apiMode: string,
     baseUrl: string,
     apiKey: string,
     model: string,
@@ -259,10 +263,10 @@ export function createTauriCommandClient(
     checkInCreate: (workspaceId, nodeId, body) =>
       invoke<CommandCheckIn>('check_in_create', { workspaceId, nodeId, body }),
     checkInList: (workspaceId) => invoke<CommandCheckIn[]>('check_in_list', { workspaceId }),
-    settingsTestLlm: (baseUrl, apiKey, model, timeoutSeconds) =>
-      invoke<CommandLlmTestResult>('settings_test_llm', { baseUrl, apiKey, model, timeoutSeconds }),
-    settingsUpdateLlm: (baseUrl, apiKey, model, timeoutSeconds) =>
-      invoke<CommandLlmSettings>('settings_update_llm', { baseUrl, apiKey, model, timeoutSeconds }),
+    settingsTestLlm: (providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) =>
+      invoke<CommandLlmTestResult>('settings_test_llm', { providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds }),
+    settingsUpdateLlm: (providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) =>
+      invoke<CommandLlmSettings>('settings_update_llm', { providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds }),
   };
 }
 
@@ -608,8 +612,8 @@ export function createMockCommandClient(): CommandClient {
         .filter((checkIn) => checkIn.workspaceId === workspaceId)
         .map((checkIn) => ({ ...checkIn }));
     },
-    async settingsTestLlm(baseUrl, apiKey, model, timeoutSeconds) {
-      if (!baseUrl.trim() || !apiKey.trim() || !model.trim() || timeoutSeconds <= 0) {
+    async settingsTestLlm(providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) {
+      if (!providerId.trim() || !apiMode.trim() || !baseUrl.trim() || !apiKey.trim() || !model.trim() || timeoutSeconds <= 0) {
         throw new Error('Complete provider settings before testing.');
       }
       return {
@@ -618,11 +622,11 @@ export function createMockCommandClient(): CommandClient {
         message: 'Connection test succeeded.',
       };
     },
-    async settingsUpdateLlm(baseUrl, apiKey, model, timeoutSeconds) {
-      if (!baseUrl.trim() || !apiKey.trim() || !model.trim() || timeoutSeconds <= 0) {
+    async settingsUpdateLlm(providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds) {
+      if (!providerId.trim() || !apiMode.trim() || !baseUrl.trim() || !apiKey.trim() || !model.trim() || timeoutSeconds <= 0) {
         throw new Error('Complete provider settings before saving.');
       }
-      state.settings = { baseUrl, apiKey, model, timeoutSeconds };
+      state.settings = { providerId, apiMode, baseUrl, apiKey, model, timeoutSeconds };
       state.contextProfile = {
         ...state.contextProfile,
         llmProviderSetupState: 'configured',

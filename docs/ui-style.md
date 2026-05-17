@@ -243,11 +243,26 @@ MindLattice depends on a configured LLM provider for the primary agent workflow.
 Setup requirements:
 
 - Missing provider configuration MUST route users to setup before promising agent-generated scaffolding.
-- API key, base URL, model, and timeout controls MUST use quiet form styling and clear validation states.
+- Provider preset, API mode, API key, Base URL, model, and timeout controls MUST use quiet form styling and clear validation states.
+- Provider setup SHOULD be two-layered: a quick preset path for common providers and an advanced manual path for Base URL, API mode, and timeout.
+- The default visible help MUST state that Base URL should stop at the API version level, not the full endpoint.
 - Connection testing SHOULD show pending, success, failure, and timeout states.
+- Testing MUST NOT save settings and MUST NOT unlock the agent; save remains a separate action after a successful matching test.
 - Provider errors MUST be actionable and concise. They MUST NOT imply user failure.
 - LLM setup copy MUST include the non-medical product boundary when relevant, but it MUST NOT bury the user in policy text.
 - Provider setup screens MUST use the same theme tokens and component density as the rest of the app.
+
+## Localization
+
+MindLattice uses `i18next` and `react-i18next` for desktop interface localization.
+
+Localization requirements:
+
+- Settings MUST expose language preference as `system`, `en`, and `zh-CN`.
+- Agent panel, Provider setup, Settings, Preview review, and Start Mode labels SHOULD use translation keys.
+- User input, raw LLM output, logs, and raw provider technical errors MUST remain untranslated.
+- Localized labels MUST preserve the stable two-pane agent plus turn-context information architecture.
+- Translation changes MUST avoid changing the non-medical product boundary.
 
 ## Memory Management
 
@@ -302,6 +317,7 @@ Disallowed platform differences:
 
 - UI implementation exposes `themePreference` as `system`, `light`, or `dark`.
 - UI implementation exposes `resolvedTheme` as `light` or `dark`.
+- UI implementation exposes language preference as `system`, `en`, or `zh-CN`.
 - Light and dark themes define the required color tokens.
 - Agent and preview state tokens are defined for light and dark themes.
 - Shared components use semantic tokens instead of hard-coded visual constants.

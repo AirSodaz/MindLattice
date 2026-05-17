@@ -931,12 +931,16 @@ export async function submitAgentMessage(
 export async function testLlmSettings(
   client: CommandClient,
   state: WorkbenchScreenState,
+  providerId: string,
+  apiMode: string,
   baseUrl: string,
   apiKey: string,
   model: string,
   timeoutSeconds: number,
 ): Promise<WorkbenchScreenState> {
   const providerTestResult = await client.settingsTestLlm(
+    providerId.trim(),
+    apiMode.trim(),
     cleanBaseUrl(baseUrl),
     apiKey.trim(),
     model.trim(),
@@ -947,6 +951,8 @@ export async function testLlmSettings(
     ...state,
     providerTestResult,
     providerTestedSettings: {
+      providerId: providerId.trim(),
+      apiMode: apiMode.trim(),
       baseUrl: cleanBaseUrl(baseUrl),
       apiKey: apiKey.trim(),
       model: model.trim(),
@@ -970,12 +976,16 @@ export async function testLlmSettings(
 export async function saveLlmSettings(
   client: CommandClient,
   state: WorkbenchScreenState,
+  providerId: string,
+  apiMode: string,
   baseUrl: string,
   apiKey: string,
   model: string,
   timeoutSeconds: number,
 ): Promise<WorkbenchScreenState> {
   const settings = {
+    providerId: providerId.trim(),
+    apiMode: apiMode.trim(),
     baseUrl: cleanBaseUrl(baseUrl),
     apiKey: apiKey.trim(),
     model: model.trim(),
@@ -1001,7 +1011,14 @@ export async function saveLlmSettings(
     };
   }
 
-  await client.settingsUpdateLlm(settings.baseUrl, settings.apiKey, settings.model, settings.timeoutSeconds);
+  await client.settingsUpdateLlm(
+    settings.providerId,
+    settings.apiMode,
+    settings.baseUrl,
+    settings.apiKey,
+    settings.model,
+    settings.timeoutSeconds,
+  );
   const contextProfile = await client.contextProfileUpdate({
     ...state.contextProfile,
     llmProviderSetupState: 'configured',
@@ -1033,6 +1050,8 @@ function cleanBaseUrl(baseUrl: string): string {
 
 function sameLlmSettings(left: CommandLlmSettings, right: CommandLlmSettings): boolean {
   return (
+    left.providerId === right.providerId &&
+    left.apiMode === right.apiMode &&
     left.baseUrl === right.baseUrl &&
     left.apiKey === right.apiKey &&
     left.model === right.model &&

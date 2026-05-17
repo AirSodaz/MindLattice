@@ -1,6 +1,8 @@
 import { Activity } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
+import '../../../shared/i18n/i18n';
 import type {
   ActiveAttentionSession,
   StartModeView,
@@ -47,6 +49,7 @@ export function StartPanel({
   startTimerState,
   workspaceReady,
 }: StartPanelProps) {
+  const { t } = useTranslation('common');
   const handleCheckInSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isCheckInSaving || !checkInDraft.trim()) {
@@ -64,15 +67,15 @@ export function StartPanel({
   };
 
   return (
-    <section className="start-mode-surface" aria-label="Start panel">
+    <section className="start-mode-surface" aria-label={t('start.aria')}>
       <div className="start-mode-header">
         <div>
-          <span className="eyebrow">Start Mode</span>
+          <span className="eyebrow">{t('start.title')}</span>
           <h2>{startModeView.nextAction}</h2>
         </div>
         {onEnterFocusMode ? (
           <button disabled={!hasStartableAction} onClick={onEnterFocusMode} type="button">
-            Enter Start Mode
+            {t('start.enter')}
           </button>
         ) : null}
       </div>
@@ -86,14 +89,14 @@ export function StartPanel({
         ))}
       </dl>
       <div className="session-controls">
-        <span>{attentionSession ? 'Focus session active' : 'Ready to start'}</span>
+        <span>{attentionSession ? t('start.focusActive') : t('start.ready')}</span>
         {startTimerState ? (
-          <div className="timer-status" aria-label="Focus timer">
+          <div className="timer-status" aria-label={t('start.timer')}>
             <strong>{startTimerState.label}</strong>
             <span>
               {startTimerState.remainingMinutes > 0
-                ? `${startTimerState.remainingMinutes} min left in this launch`
-                : 'Launch window is open-ended'}
+                ? t('start.minutesLeft', { count: startTimerState.remainingMinutes })
+                : t('start.openEnded')}
             </span>
           </div>
         ) : null}
@@ -102,16 +105,16 @@ export function StartPanel({
             <input
               disabled={isSessionBusy}
               onChange={(event) => onSessionCompletionNoteChange(event.target.value)}
-              placeholder="What changed or where to resume?"
+              placeholder={t('start.closePlaceholder')}
               value={sessionCompletionNote}
             />
             <button disabled={isSessionBusy} type="submit">
-              Close session
+              {t('start.closeSession')}
             </button>
           </form>
         ) : (
           <button disabled={isSessionBusy || !hasStartableAction} onClick={onStartSession} type="button">
-            Start focus
+            {t('start.startFocus')}
           </button>
         )}
       </div>
@@ -124,7 +127,7 @@ export function StartPanel({
         ))}
       </ul>
       <form className="check-in-form" onSubmit={handleCheckInSubmit}>
-        <div className="follow-up-prompts" aria-label="Follow-up prompts">
+        <div className="follow-up-prompts" aria-label={t('start.followUpPrompts')}>
           {followUpPrompts.map((prompt) => (
             <button disabled={isCheckInSaving} key={prompt} onClick={() => onCheckInDraftChange(prompt)} type="button">
               {prompt}
@@ -132,16 +135,16 @@ export function StartPanel({
           ))}
         </div>
         <label>
-          Check-in
+          {t('start.checkIn')}
           <textarea
             disabled={isCheckInSaving || !workspaceReady}
             onChange={(event) => onCheckInDraftChange(event.target.value)}
-            placeholder="Did you start, where did it get stuck, or what should stay visible next?"
+            placeholder={t('start.checkInPlaceholder')}
             value={checkInDraft}
           />
         </label>
         <button disabled={isCheckInSaving || !checkInDraft.trim() || !workspaceReady} type="submit">
-          Save check-in
+          {t('start.saveCheckIn')}
         </button>
       </form>
       <CheckInHistory checkIns={checkIns} />
@@ -150,20 +153,22 @@ export function StartPanel({
 }
 
 function CheckInHistory({ checkIns }: { checkIns: WorkbenchScreenCheckIn[] }) {
+  const { t } = useTranslation('common');
+
   return (
-    <div className="check-in-history" aria-label="Saved check-ins">
+    <div className="check-in-history" aria-label={t('start.savedFollowUps')}>
       <div>
-        <span className="eyebrow">Check-in history</span>
-        <h3>Saved follow-ups</h3>
+        <span className="eyebrow">{t('start.history')}</span>
+        <h3>{t('start.savedFollowUps')}</h3>
       </div>
       {checkIns.length === 0 ? (
-        <p>No check-ins saved yet.</p>
+        <p>{t('start.noCheckIns')}</p>
       ) : (
         <ul>
           {[...checkIns].reverse().map((checkIn) => (
             <li key={checkIn.id}>
               <p>{checkIn.body}</p>
-              <span>{checkIn.nodeId ? 'Linked to current map item' : 'Workspace note'}</span>
+              <span>{checkIn.nodeId ? t('start.linkedToNode') : t('start.workspaceNote')}</span>
             </li>
           ))}
         </ul>

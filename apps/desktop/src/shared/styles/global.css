@@ -795,6 +795,12 @@ dd {
   font-size: 12px;
 }
 
+.field-help {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .settings-form input,
 .settings-form select {
   width: 100%;

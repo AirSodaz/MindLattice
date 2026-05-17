@@ -180,6 +180,8 @@ export type CommandCheckIn = {
 };
 
 export type CommandLlmSettings = {
+  providerId: string;
+  apiMode: string;
   baseUrl: string;
   apiKey: string;
   model: string;

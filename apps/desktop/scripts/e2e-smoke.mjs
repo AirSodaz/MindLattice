@@ -69,6 +69,10 @@ async function runSmoke(protocol) {
   const pageLoaded = onceEvent(protocol, 'Page.loadEventFired');
   await protocol.send('Page.navigate', { url: appUrl });
   await pageLoaded;
+  await evaluate(protocol, `window.localStorage.setItem('mindlattice.languagePreference', 'en')`);
+  const englishReloaded = onceEvent(protocol, 'Page.loadEventFired');
+  await protocol.send('Page.reload', { ignoreCache: true });
+  await englishReloaded;
   await waitForText(protocol, 'Execution agent');
   await waitForText(protocol, 'Setup required');
   await waitForText(protocol, 'Provider setup');
@@ -99,6 +103,11 @@ async function runSmoke(protocol) {
   await waitForText(protocol, 'Local Profile');
   await waitForText(protocol, 'Safety Boundary');
   await waitForText(protocol, 'Interface');
+  await selectByLabel(protocol, 'Language preference', 'zh-CN');
+  await waitForText(protocol, '语言偏好');
+  await waitForText(protocol, 'Agent 设置与本地偏好');
+  await selectByLabel(protocol, '语言偏好', 'en');
+  await waitForText(protocol, 'Language preference');
   await clickInputByLabel(protocol, 'work');
   await clickInputByLabel(protocol, 'task initiation');
   await selectByLabel(protocol, 'Preferred support', 'task_structure');

@@ -326,6 +326,8 @@ Provider setup is part of the product, not a hidden settings chore.
 
 Required fields:
 
+- Provider preset.
+- API mode.
 - Base URL.
 - API key.
 - Model.
@@ -349,7 +351,12 @@ Required states:
 
 Rules:
 
+- Provider presets MUST include OpenAI, Anthropic Claude, Google Gemini, Ollama / Local OpenAI Compatible, and Custom.
+- Manual Base URL configuration MUST require one API mode: OpenAI Chat Completions compatible, OpenAI Responses API compatible, Claude Messages API compatible, or Google Gemini API compatible.
+- Presets MUST NOT fill API keys.
+- Base URL guidance MUST state that the value should stop at the API version level, not the full endpoint path.
 - Do not unlock the agent composer until settings are saved and marked configured.
+- Do not persist settings from a test connection.
 - Do not clear entered values after a failed test.
 - Keep error copy short.
 - Put raw provider detail behind an expandable technical detail.

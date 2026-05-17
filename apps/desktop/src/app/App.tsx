@@ -63,7 +63,15 @@ import {
   type WorkbenchNodeKind,
 } from '../features/workbench/workbenchModel';
 import { buildSettingsSections } from '../features/settings/settingsModel';
+import {
+  apiModeOptions,
+  applyLlmProviderPreset,
+  llmProviderPresets,
+  type LlmApiMode,
+  type LlmProviderId,
+} from '../features/settings/llmProviderRegistry';
 import { createCommandClient } from '../shared/api/commandClient';
+import { changeLanguagePreference, type LanguagePreference } from '../shared/i18n/i18n';
 import type {
   CommandExperimentContext,
   CommandStrategyDecision,
@@ -74,6 +82,12 @@ const themeOptions: Array<{ value: ThemePreference; label: string }> = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
+];
+
+const languageOptions: Array<{ value: LanguagePreference; label: string }> = [
+  { value: 'system', label: 'System' },
+  { value: 'en', label: 'English' },
+  { value: 'zh-CN', label: '简体中文' },
 ];
 
 const surroundingNodeOptions: Array<{ value: WorkbenchNodeKind; label: string }> = [
@@ -108,6 +122,7 @@ const flowCanvasSize = { width: 1000, height: 700 };
 
 export function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>('system');
+  const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() => initialLanguagePreference());
   const [requestedPane, setRequestedPane] = useState<'setup' | 'advanced_map' | 'start' | null>(null);
   const [activeTaskPanel, setActiveTaskPanel] = useState<WorkbenchTaskPanel>(null);
   const [screenState, setScreenState] = useState<WorkbenchScreenState>(() => ({
@@ -144,6 +159,8 @@ export function App() {
     },
   }));
   const [composerValue, setComposerValue] = useState('Break this down into one visible start.');
+  const [llmProviderId, setLlmProviderId] = useState<LlmProviderId>('ollama_local');
+  const [llmApiMode, setLlmApiMode] = useState<LlmApiMode>('openai_chat_completions');
   const [llmBaseUrl, setLlmBaseUrl] = useState('http://localhost:11434/v1');
   const [llmApiKey, setLlmApiKey] = useState('');
   const [llmModel, setLlmModel] = useState('');
@@ -405,6 +422,10 @@ export function App() {
   }, [screenState.attentionSession]);
 
   useEffect(() => {
+    void changeLanguagePreference(languagePreference);
+  }, [languagePreference]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const shortcut = resolveWorkbenchShortcut(event);
       if (!shortcut) {
@@ -463,6 +484,32 @@ export function App() {
     },
     [clearProviderTestResult],
   );
+  const handleLlmProviderPresetChange = useCallback(
+    (value: LlmProviderId) => {
+      const nextSettings = applyLlmProviderPreset(value, {
+        apiMode: llmApiMode,
+        baseUrl: llmBaseUrl,
+        apiKey: llmApiKey,
+        model: llmModel,
+        timeoutSeconds: llmTimeoutSeconds,
+      });
+      setLlmProviderId(nextSettings.providerId);
+      setLlmApiMode(nextSettings.apiMode);
+      setLlmBaseUrl(nextSettings.baseUrl);
+      setLlmApiKey(nextSettings.apiKey);
+      setLlmModel(nextSettings.model);
+      setLlmTimeoutSeconds(nextSettings.timeoutSeconds);
+      clearProviderTestResult();
+    },
+    [clearProviderTestResult, llmApiKey, llmApiMode, llmBaseUrl, llmModel, llmTimeoutSeconds],
+  );
+  const handleLlmApiModeChange = useCallback(
+    (value: LlmApiMode) => {
+      setLlmApiMode(value);
+      clearProviderTestResult();
+    },
+    [clearProviderTestResult],
+  );
   const handleLlmTimeoutSecondsChange = useCallback(
     (value: number) => {
       setLlmTimeoutSeconds(value);
@@ -470,6 +517,12 @@ export function App() {
     },
     [clearProviderTestResult],
   );
+  const handleLanguagePreferenceChange = useCallback((value: LanguagePreference) => {
+    setLanguagePreference(value);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('mindlattice.languagePreference', value);
+    }
+  }, []);
 
   return (
     <main className={`app-shell ${isStartModeFocused ? 'is-start-mode' : ''}`} data-theme={resolvedTheme}>
@@ -616,13 +669,19 @@ export function App() {
           setup={
             <ProviderSetupPanel
               apiKey={llmApiKey}
+              apiMode={llmApiMode}
+              apiModeOptions={apiModeOptions}
               baseUrl={llmBaseUrl}
               isSaving={isLlmSaving}
               isTesting={isLlmTesting}
               model={llmModel}
+              providerId={llmProviderId}
+              providerPresets={llmProviderPresets}
               onApiKeyChange={handleLlmApiKeyChange}
+              onApiModeChange={handleLlmApiModeChange}
               onBaseUrlChange={handleLlmBaseUrlChange}
               onModelChange={handleLlmModelChange}
+              onProviderPresetChange={handleLlmProviderPresetChange}
               onSave={async () => {
                 if (isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
                   return;
@@ -633,6 +692,8 @@ export function App() {
                     await saveLlmSettings(
                       commandClient,
                       screenState,
+                      llmProviderId,
+                      llmApiMode,
                       llmBaseUrl,
                       llmApiKey,
                       llmModel,
@@ -656,6 +717,8 @@ export function App() {
                     await testLlmSettings(
                       commandClient,
                       screenState,
+                      llmProviderId,
+                      llmApiMode,
                       llmBaseUrl,
                       llmApiKey,
                       llmModel,
@@ -910,16 +973,25 @@ export function App() {
                   isLlmTesting={isLlmTesting}
                   isOnboardingSaving={isOnboardingSaving}
                   llmApiKey={llmApiKey}
+                  llmApiMode={llmApiMode}
+                  llmApiModeOptions={apiModeOptions}
                   llmBaseUrl={llmBaseUrl}
                   llmModel={llmModel}
+                  llmProviderId={llmProviderId}
+                  llmProviderPresets={llmProviderPresets}
                   llmTimeoutSeconds={llmTimeoutSeconds}
+                  languageOptions={languageOptions}
+                  languagePreference={languagePreference}
                   onboardingContexts={onboardingContexts}
                   onboardingDifficulties={onboardingDifficulties}
                   onboardingSupportCategories={onboardingSupportCategories}
                   onLlmApiKeyChange={handleLlmApiKeyChange}
+                  onLlmApiModeChange={handleLlmApiModeChange}
                   onLlmBaseUrlChange={handleLlmBaseUrlChange}
                   onLlmModelChange={handleLlmModelChange}
+                  onLlmProviderPresetChange={handleLlmProviderPresetChange}
                   onLlmTimeoutSecondsChange={handleLlmTimeoutSecondsChange}
+                  onLanguagePreferenceChange={handleLanguagePreferenceChange}
                   onOnboardingContextsChange={setOnboardingContexts}
                   onOnboardingDifficultiesChange={setOnboardingDifficulties}
                   onOnboardingSupportCategoriesChange={setOnboardingSupportCategories}
@@ -930,7 +1002,16 @@ export function App() {
                     setIsLlmSaving(true);
                     try {
                       setScreenState(
-                        await saveLlmSettings(commandClient, screenState, llmBaseUrl, llmApiKey, llmModel, llmTimeoutSeconds),
+                        await saveLlmSettings(
+                          commandClient,
+                          screenState,
+                          llmProviderId,
+                          llmApiMode,
+                          llmBaseUrl,
+                          llmApiKey,
+                          llmModel,
+                          llmTimeoutSeconds,
+                        ),
                       );
                       setRequestedPane(null);
                       setActiveTaskPanel(null);
@@ -968,7 +1049,16 @@ export function App() {
                     setIsLlmTesting(true);
                     try {
                       setScreenState(
-                        await testLlmSettings(commandClient, screenState, llmBaseUrl, llmApiKey, llmModel, llmTimeoutSeconds),
+                        await testLlmSettings(
+                          commandClient,
+                          screenState,
+                          llmProviderId,
+                          llmApiMode,
+                          llmBaseUrl,
+                          llmApiKey,
+                          llmModel,
+                          llmTimeoutSeconds,
+                        ),
                       );
                     } catch (error) {
                       setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
@@ -1060,4 +1150,14 @@ export function App() {
       )}
     </main>
   );
+}
+
+function initialLanguagePreference(): LanguagePreference {
+  if (typeof window === 'undefined') {
+    return 'system';
+  }
+  const savedPreference = window.localStorage.getItem('mindlattice.languagePreference');
+  return savedPreference === 'en' || savedPreference === 'zh-CN' || savedPreference === 'system'
+    ? savedPreference
+    : 'system';
 }

@@ -6,6 +6,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { buildSettingsSections } from './settingsModel';
 import { SettingsPanel } from './SettingsPanel';
+import { llmProviderPresets, apiModeOptions } from './llmProviderRegistry';
+import { changeLanguagePreference } from '../../shared/i18n/i18n';
 
 const profile = {
   id: 'context-profile-1',
@@ -17,6 +19,8 @@ const profile = {
 };
 
 test('settings panel renders provider, profile, safety, and interface groups', async () => {
+  await changeLanguagePreference('en');
+
   const html = renderToStaticMarkup(
     React.createElement(SettingsPanel, {
       adultContextOptions: ['work', 'study'],
@@ -25,16 +29,29 @@ test('settings panel renders provider, profile, safety, and interface groups', a
       isLlmTesting: false,
       isOnboardingSaving: false,
       llmApiKey: '',
+      llmApiMode: 'openai_chat_completions',
       llmBaseUrl: 'http://localhost:11434/v1',
       llmModel: '',
+      llmProviderId: 'ollama_local',
       llmTimeoutSeconds: 30,
+      languageOptions: [
+        { value: 'system', label: 'System' },
+        { value: 'en', label: 'English' },
+        { value: 'zh-CN', label: '简体中文' },
+      ],
+      languagePreference: 'system',
+      llmApiModeOptions: apiModeOptions,
+      llmProviderPresets,
       onboardingContexts: [],
       onboardingDifficulties: [],
       onboardingSupportCategories: [],
       onLlmApiKeyChange: () => {},
+      onLlmApiModeChange: () => {},
       onLlmBaseUrlChange: () => {},
       onLlmModelChange: () => {},
+      onLlmProviderPresetChange: () => {},
       onLlmTimeoutSecondsChange: () => {},
+      onLanguagePreferenceChange: () => {},
       onOnboardingContextsChange: () => {},
       onOnboardingDifficultiesChange: () => {},
       onOnboardingSupportCategoriesChange: () => {},
@@ -56,9 +73,12 @@ test('settings panel renders provider, profile, safety, and interface groups', a
 
   assert.match(html, /Agent setup and local preferences/);
   assert.match(html, /Required LLM connection/);
+  assert.match(html, /Provider preset/);
+  assert.match(html, /API mode/);
   assert.match(html, /Test connection/);
   assert.match(html, /Support matching defaults/);
   assert.match(html, /Low-risk execution support/);
   assert.match(html, /No diagnosis, treatment, medication guidance, symptom scoring/);
   assert.match(html, /Theme preference/);
+  assert.match(html, /Language preference/);
 });
