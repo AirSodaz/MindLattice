@@ -4,6 +4,15 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
 export type WorkbenchShortcutAction = 'focus-capture' | 'save-selected-node' | 'start-mode';
 export type WorkbenchViewMode = 'map' | 'start';
+export type WorkbenchDrawer =
+  | null
+  | 'preview'
+  | 'inspector'
+  | 'support'
+  | 'start'
+  | 'vault'
+  | 'memory'
+  | 'settings';
 
 export type ActiveAttentionSession = {
   intendedDurationMinutes: number | null;
@@ -122,6 +131,19 @@ export type PresentedCommandError = {
   message: string;
   detail: string;
 };
+
+export function drawerTitle(drawer: WorkbenchDrawer): string {
+  const titles: Record<Exclude<WorkbenchDrawer, null>, string> = {
+    preview: 'Agent preview',
+    inspector: 'Selected node',
+    support: 'Support templates',
+    start: 'Start Mode',
+    vault: 'Vault import/export',
+    memory: 'Preference memory',
+    settings: 'Settings',
+  };
+  return drawer ? titles[drawer] : 'Context drawer';
+}
 
 export function resolveTheme(preference: ThemePreference, systemPrefersDark: boolean): ResolvedTheme {
   if (preference === 'system') {

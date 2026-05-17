@@ -5,6 +5,7 @@ import {
   buildStartModeView,
   buildInitialWorkbench,
   buildStartTimerState,
+  drawerTitle,
   enterStartMode,
   followUpPromptOptions,
   getSelectedNode,
@@ -17,6 +18,13 @@ import {
   rejectActivePreview,
   resolveTheme,
 } from './workbenchModel';
+
+test('names contextual drawer surfaces without exposing them by default', () => {
+  assert.equal(drawerTitle(null), 'Context drawer');
+  assert.equal(drawerTitle('preview'), 'Agent preview');
+  assert.equal(drawerTitle('inspector'), 'Selected node');
+  assert.equal(drawerTitle('settings'), 'Settings');
+});
 
 test('resolves theme preferences', () => {
   assert.equal(resolveTheme('light', true), 'light');

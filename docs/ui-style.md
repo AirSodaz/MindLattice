@@ -148,11 +148,15 @@ Primary regions:
 
 - Agent thread: natural-language execution input, agent responses, tool status, and preview revision.
 - Star-map canvas: externalized task context, persisted nodes and edges, and proposed graph changes.
-- Inspector or preview detail pane: selected node details, active preview operations, and confirmation controls.
+- Context drawer: selected node details, active preview operations, support templates, memory, Vault, Start entry, and Settings.
 - Start Mode: one-action view used after the map has been reduced to a startable next action.
-- Settings: LLM provider setup, theme, memory management, and local preferences.
+- Settings: LLM provider setup, theme, and local preferences inside the context drawer.
 
-The first viewport SHOULD make the agent input and current work context available together. The UI MAY use a two-pane or three-pane workbench, but it MUST NOT hide the agent thread behind a secondary page during normal task capture and revision.
+The first viewport MUST make the agent input, current task, next action, and star-map canvas available together. The default workbench SHOULD use a two-pane layout: agent thread on the left, star-map workspace on the right. It MUST NOT mount preview, inspector, support, memory, Vault, Start, and Settings surfaces as simultaneous persistent columns.
+
+Low-frequency tools SHOULD open in a right-side context drawer. The drawer MUST show only one tool at a time, SHOULD be about `360px` wide on desktop, and SHOULD become a full-width panel on compact screens. Closing the drawer MUST return to the two-pane workbench.
+
+The agent composer is also the quick-capture entry. When the LLM provider is not configured, submitting text MAY create a plain task, but the UI MUST NOT promise agent-generated decomposition. Provider setup SHOULD appear as a compact setup card that opens Settings in the context drawer.
 
 The app shell MUST preserve information architecture across Windows, macOS, and Linux. Platform builds MAY adjust title-bar integration and shortcut labels, but they MUST NOT move core workflows to different navigation locations.
 

@@ -15,7 +15,7 @@ Use this checklist after `cargo test --workspace`, `corepack pnpm test`, `corepa
 
 - `corepack pnpm --dir apps/desktop test` includes component-level server-render coverage for the Settings surface, model/controller smoke coverage for preview review, inspector behavior, support adoption, strategy experiments, Start Mode, follow-up prompts, memory review, and Vault import/export command flow, plus a dependency-light MVP business smoke flow for setup, capture, preview acceptance, map editing, support adoption, Start Mode, check-in, memory review, and Vault import.
 - `corepack pnpm smoke:e2e` starts or reuses the Vite desktop UI and drives a headless Chrome/Edge browser through first load, Settings provider/profile setup, agent preview/revision/acceptance, manual node and edge editing, support adoption, strategy experiment review, check-in and memory review, Vault import, Start Mode entry/return, and browser console warning/error checks.
-- Browser smoke on `http://127.0.0.1:5173/` verified the app loads with title `MindLattice`, renders the Settings region with Agent Provider, Local Profile, Safety Boundary, and Interface groups, and reports no browser console warnings or errors.
+- Browser smoke on `http://127.0.0.1:5173/` verified the app loads with title `MindLattice`, defaults to a two-pane agent plus star-map workbench, keeps Preview, Inspector, Settings, Support, Memory, Vault, and Start surfaces out of the first viewport until their context drawer is opened, and reports no browser console warnings or errors.
 - Windows package build produced `target/release/mindlattice-desktop.exe`, `target/release/bundle/msi/MindLattice_0.1.0_x64_en-US.msi`, and `target/release/bundle/nsis/MindLattice_0.1.0_x64-setup.exe`.
 - Remaining manual smoke items below still require exercising a packaged app install or launch path and a configured real LLM provider.
 
@@ -23,14 +23,14 @@ Use this checklist after `cargo test --workspace`, `corepack pnpm test`, `corepa
 
 - Launch the desktop app with an empty app-data directory.
 - Confirm a default local workspace opens.
-- Confirm the agent composer is disabled until an LLM provider is configured.
+- Confirm the agent composer creates a plain focus task before an LLM provider is configured.
 - Save a local profile with at least one adult context, one execution difficulty, and one preferred support category.
 - Save LLM provider settings with `base_url`, `api_key`, `model`, and timeout.
-- Confirm the agent composer becomes available only after provider setup succeeds.
+- Confirm the agent composer routes messages into the agent preview flow after provider setup succeeds.
 
 ## Agent and Map
 
-- Create a first focus task from the quick-capture field.
+- Create a first focus task from the agent composer before provider setup, or ask the configured agent to break down a messy task.
 - Ask the agent to break down a messy task.
 - Confirm the response appears as an agent preview and does not persist automatically.
 - Revise the preview in natural language.

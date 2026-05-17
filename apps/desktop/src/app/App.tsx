@@ -9,7 +9,7 @@ import {
   type NodeProps,
   type OnNodeDrag,
 } from '@xyflow/react';
-import { Activity, BrainCircuit, Check, CircleDot, Moon, Send, Sun, X } from 'lucide-react';
+import { Activity, BrainCircuit, Check, CircleDot, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '@xyflow/react/dist/style.css';
 import { SettingsPanel } from '../features/settings/SettingsPanel';
@@ -20,7 +20,6 @@ import {
   adoptSupportTemplate,
   createCheckIn,
   createCustomSupportNode,
-  createFocusTask,
   deletePreferenceMemory,
   acceptPreferenceMemoryProposal,
   acceptStrategyExperimentProposal,
@@ -50,6 +49,7 @@ import {
   buildInitialWorkbench,
   buildStartModeView,
   buildStartTimerState,
+  drawerTitle,
   enterStartMode,
   followUpPromptOptions,
   getSelectedNode,
@@ -61,9 +61,10 @@ import {
   resolveTheme,
   resolveWorkbenchShortcut,
   type ThemePreference,
+  type WorkbenchDrawer,
   type WorkbenchNodeKind,
 } from '../features/workbench/workbenchModel';
-import { buildSettingsSections, isFirstRunSetupComplete } from '../features/settings/settingsModel';
+import { buildSettingsSections } from '../features/settings/settingsModel';
 import { createCommandClient } from '../shared/api/commandClient';
 import type {
   CommandExperimentContext,
@@ -153,6 +154,7 @@ function CheckInHistory({ checkIns }: { checkIns: WorkbenchScreenState['checkIns
 
 export function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>('system');
+  const [activeDrawer, setActiveDrawer] = useState<WorkbenchDrawer>(null);
   const [screenState, setScreenState] = useState<WorkbenchScreenState>(() => ({
     workspaceId: '',
     contextProfile: {
@@ -191,9 +193,7 @@ export function App() {
   const [llmTimeoutSeconds, setLlmTimeoutSeconds] = useState(30);
   const [isLlmSaving, setIsLlmSaving] = useState(false);
   const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
-  const [focusTaskDraft, setFocusTaskDraft] = useState('');
   const [isAgentBusy, setIsAgentBusy] = useState(false);
-  const [isFocusTaskCreating, setIsFocusTaskCreating] = useState(false);
   const [isNodeSaving, setIsNodeSaving] = useState(false);
   const [isEdgeSaving, setIsEdgeSaving] = useState(false);
   const [isSessionBusy, setIsSessionBusy] = useState(false);
@@ -222,7 +222,7 @@ export function App() {
     clarify: false,
   });
   const commandClient = useMemo(() => createCommandClient(), []);
-  const quickCaptureInputRef = useRef<HTMLInputElement | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
   const { supportTemplates, workbench } = screenState;
   const isLlmConfigured = screenState.contextProfile.llmProviderSetupState === 'configured';
   const settingsSections = useMemo(
@@ -254,7 +254,6 @@ export function App() {
   const startModeView = useMemo(() => buildStartModeView(workbench), [workbench]);
   const hasStartableAction = workbench.nodes.some((node) => node.kind === 'next_action');
   const isStartModeFocused = workbench.viewMode === 'start';
-  const hasFirstRunSetup = isFirstRunSetupComplete(screenState.contextProfile);
   const startTimerState = useMemo(
     () => buildStartTimerState(screenState.attentionSession, timerNowIso),
     [screenState.attentionSession, timerNowIso],
@@ -264,21 +263,6 @@ export function App() {
     () => reactFlowElementsFromWorkbench(workbench, flowCanvasSize),
     [workbench],
   );
-
-  const handleCreateFocusTask = useCallback(async () => {
-    if (isFocusTaskCreating || !focusTaskDraft.trim()) {
-      return;
-    }
-    setIsFocusTaskCreating(true);
-    try {
-      setScreenState({ ...(await createFocusTask(commandClient, screenState, focusTaskDraft)), lastError: null });
-      setFocusTaskDraft('');
-    } catch (error) {
-      setScreenState((current) => ({ ...current, lastError: presentCommandError(error) }));
-    } finally {
-      setIsFocusTaskCreating(false);
-    }
-  }, [commandClient, focusTaskDraft, isFocusTaskCreating, screenState]);
 
   const handleSaveSelectedNode = useCallback(async () => {
     if (isNodeSaving || !selectedNode) {
@@ -461,14 +445,15 @@ export function App() {
       event.preventDefault();
 
       if (shortcut === 'focus-capture') {
-        quickCaptureInputRef.current?.focus();
-        quickCaptureInputRef.current?.select();
+        composerInputRef.current?.focus();
+        composerInputRef.current?.select();
         return;
       }
       if (shortcut === 'save-selected-node') {
         void handleSaveSelectedNode();
         return;
       }
+      setActiveDrawer(null);
       setScreenState((current) => ({
         ...current,
         workbench: enterStartMode(current.workbench),
@@ -524,17 +509,33 @@ export function App() {
         >
           <textarea
             aria-label="Message the execution agent"
-            disabled={isAgentBusy || !isLlmConfigured}
+            disabled={isAgentBusy || !screenState.workspaceId}
             onChange={(event) => setComposerValue(event.target.value)}
+            placeholder={
+              isLlmConfigured
+                ? 'Describe what feels messy or ask for a smaller next action.'
+                : 'Name one task to make visible. Agent setup can wait.'
+            }
+            ref={composerInputRef}
             value={composerValue}
           />
-          <button aria-label="Send message" disabled={isAgentBusy || !isLlmConfigured} type="submit">
+          <button
+            aria-label="Send message"
+            disabled={isAgentBusy || !screenState.workspaceId || !composerValue.trim()}
+            type="submit"
+          >
             <Send aria-hidden="true" size={18} />
           </button>
         </form>
 
-        {!hasFirstRunSetup ? (
-          <p className="agent-setup-hint">Finish Agent Provider and Local Profile in Settings before the agent workflow is available.</p>
+        {!isLlmConfigured ? (
+          <div className="agent-setup-card">
+            <span className="eyebrow">Agent setup</span>
+            <p>Without an LLM provider, this input creates plain tasks. Configure the provider when you want agent-drafted previews.</p>
+            <button onClick={() => setActiveDrawer('settings')} type="button">
+              Open settings
+            </button>
+          </div>
         ) : null}
       </aside>
 
@@ -552,42 +553,63 @@ export function App() {
             <span className="eyebrow">Star-map canvas</span>
             <h2>{workbench.focusTaskTitle}</h2>
           </div>
-          <div className="theme-control" aria-label="Theme preference">
-            {themeOptions.map((option) => (
-              <button
-                className={themePreference === option.value ? 'is-active' : ''}
-                key={option.value}
-                onClick={() => setThemePreference(option.value)}
-                type="button"
-              >
-                {option.value === 'dark' ? <Moon aria-hidden="true" size={16} /> : <Sun aria-hidden="true" size={16} />}
-                {option.label}
-              </button>
-            ))}
+          <div className="workspace-actions" aria-label="Workspace tools">
+            <button
+              className={workbench.activePreview ? 'has-preview' : ''}
+              disabled={!workbench.activePreview}
+              onClick={() => setActiveDrawer('preview')}
+              type="button"
+            >
+              Preview
+            </button>
+            <button
+              disabled={!selectedNode}
+              onClick={() => setActiveDrawer('inspector')}
+              type="button"
+            >
+              Node
+            </button>
+            <button disabled={!hasStartableAction} onClick={() => setActiveDrawer('start')} type="button">
+              Start
+            </button>
+            <button onClick={() => setActiveDrawer('support')} type="button">
+              Support
+            </button>
+            <button onClick={() => setActiveDrawer('memory')} type="button">
+              Memory
+            </button>
+            <button onClick={() => setActiveDrawer('vault')} type="button">
+              Vault
+            </button>
+            <button onClick={() => setActiveDrawer('settings')} type="button">
+              Settings
+            </button>
           </div>
         </header>
 
-        <form
-          className="quick-capture"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            await handleCreateFocusTask();
-          }}
-        >
-          <label>
-            Focus task
-            <input
-              disabled={isFocusTaskCreating || !screenState.workspaceId}
-              ref={quickCaptureInputRef}
-              onChange={(event) => setFocusTaskDraft(event.target.value)}
-              placeholder="Name the task to make visible"
-              value={focusTaskDraft}
-            />
-          </label>
-          <button disabled={isFocusTaskCreating || !focusTaskDraft.trim() || !screenState.workspaceId} type="submit">
-            Create task
+        <section className="focus-summary" aria-label="Current focus summary">
+          <div>
+            <span className="eyebrow">Current focus</span>
+            <h3>{selectedNode?.title ?? workbench.focusTaskTitle}</h3>
+          </div>
+          <dl>
+            <div>
+              <dt>Next action</dt>
+              <dd>{startModeView.nextAction}</dd>
+            </div>
+            <div>
+              <dt>Minimum done</dt>
+              <dd>{startModeView.minimumDone}</dd>
+            </div>
+          </dl>
+        </section>
+
+        {workbench.activePreview ? (
+          <button className="preview-chip" onClick={() => setActiveDrawer('preview')} type="button">
+            <CircleDot aria-hidden="true" size={16} />
+            Active preview ready for review
           </button>
-        </form>
+        ) : null}
 
         <div className="canvas-plane">
           <ReactFlowProvider>
@@ -599,12 +621,13 @@ export function App() {
               nodeTypes={nodeTypes}
               nodes={flowElements.nodes}
               nodesDraggable
-              onNodeClick={(_event, node) =>
+              onNodeClick={(_event, node) => {
                 setScreenState((current) => ({
                   ...current,
                   workbench: { ...current.workbench, selectedNodeId: node.id },
-                }))
-              }
+                }));
+                setActiveDrawer('inspector');
+              }}
               onNodeDragStop={handleNodeDragStop}
               panOnScroll
               proOptions={{ hideAttribution: true }}
@@ -617,8 +640,18 @@ export function App() {
       </section>
       ) : null}
 
-      {!isStartModeFocused ? (
-      <aside className="detail-panel" aria-label="Inspector and preview">
+      {!isStartModeFocused && activeDrawer ? (
+      <aside className="context-drawer" aria-label="Context drawer">
+        <header className="drawer-header">
+          <div>
+            <span className="eyebrow">Context</span>
+            <h2>{drawerTitle(activeDrawer)}</h2>
+          </div>
+          <button className="secondary" onClick={() => setActiveDrawer(null)} type="button">
+            Close
+          </button>
+        </header>
+        {activeDrawer === 'preview' ? (
         <section className="preview-surface">
           <div className="panel-heading compact">
             <div>
@@ -633,6 +666,7 @@ export function App() {
               disabled={!workbench.activePreview}
               onClick={async () => {
                 setScreenState(await acceptActivePreview(commandClient, screenState));
+                setActiveDrawer(null);
               }}
               type="button"
             >
@@ -644,6 +678,7 @@ export function App() {
               disabled={!workbench.activePreview}
               onClick={async () => {
                 setScreenState(await rejectActivePreview(commandClient, screenState));
+                setActiveDrawer(null);
               }}
               type="button"
             >
@@ -652,7 +687,9 @@ export function App() {
             </button>
           </div>
         </section>
+        ) : null}
 
+        {activeDrawer === 'inspector' ? (
         <section className="inspector-surface">
           <span className="eyebrow">Selected node</span>
           <h2>{selectedNode?.title ?? 'No selection'}</h2>
@@ -817,7 +854,9 @@ export function App() {
             </div>
           </dl>
         </section>
+        ) : null}
 
+        {activeDrawer === 'settings' ? (
         <SettingsPanel
           adultContextOptions={adultContextOptions}
           executionDifficultyOptions={executionDifficultyOptions}
@@ -887,7 +926,9 @@ export function App() {
           themeOptions={themeOptions}
           themePreference={themePreference}
         />
+        ) : null}
 
+        {activeDrawer === 'support' ? (
         <section className="support-surface">
           <div>
             <span className="eyebrow">Support templates</span>
@@ -1249,7 +1290,9 @@ export function App() {
             </div>
           ) : null}
         </section>
+        ) : null}
 
+        {activeDrawer === 'start' ? (
         <section className="start-mode-surface">
           <div className="start-mode-header">
             <div>
@@ -1258,12 +1301,13 @@ export function App() {
             </div>
             <button
               disabled={!hasStartableAction}
-              onClick={() =>
+              onClick={() => {
+                setActiveDrawer(null);
                 setScreenState((current) => ({
                   ...current,
                   workbench: enterStartMode(current.workbench),
-                }))
-              }
+                }));
+              }}
               type="button"
             >
               Enter Start Mode
@@ -1386,7 +1430,9 @@ export function App() {
           </form>
           <CheckInHistory checkIns={screenState.checkIns} />
         </section>
+        ) : null}
 
+        {activeDrawer === 'vault' ? (
         <section className="vault-surface">
           <div>
             <span className="eyebrow">Vault import/export</span>
@@ -1503,7 +1549,9 @@ export function App() {
             </article>
           ) : null}
         </section>
+        ) : null}
 
+        {activeDrawer === 'memory' ? (
         <section className="memory-surface">
           <div>
             <span className="eyebrow">Preference memory</span>
@@ -1625,8 +1673,11 @@ export function App() {
             </div>
           )}
         </section>
+        ) : null}
       </aside>
-      ) : (
+      ) : null}
+
+      {isStartModeFocused ? (
         <section className="start-mode-focus" aria-label="Focused Start Mode">
           <div className="start-mode-focus-header">
             <div>
@@ -1763,7 +1814,7 @@ export function App() {
           </form>
           <CheckInHistory checkIns={screenState.checkIns} />
         </section>
-      )}
+      ) : null}
     </main>
   );
 }

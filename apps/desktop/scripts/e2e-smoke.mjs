@@ -70,16 +70,23 @@ async function runSmoke(protocol) {
   await protocol.send('Page.navigate', { url: appUrl });
   await pageLoaded;
   await waitForText(protocol, 'Execution agent');
+  await waitForText(protocol, 'Current focus');
+  await waitForText(protocol, 'Agent setup');
+
+  assert.equal(await getDocumentTitle(protocol), 'MindLattice');
+  assert.equal(await locatorCount(protocol, 'main.app-shell'), 1);
+  assert.equal(await locatorCount(protocol, '.context-drawer'), 0);
+  assert.equal(await locatorCount(protocol, '[aria-label="Star-map canvas"]'), 1);
+
+  await fillByAriaLabel(protocol, 'Message the execution agent', 'Manual setup task');
+  await clickElement(protocol, `document.querySelector('[aria-label="Send message"]')`);
+  await waitForText(protocol, 'Created focus task: Manual setup task.');
+
+  await clickButton(protocol, 'Open settings');
   await waitForText(protocol, 'Agent Provider');
   await waitForText(protocol, 'Local Profile');
   await waitForText(protocol, 'Safety Boundary');
   await waitForText(protocol, 'Interface');
-
-  assert.equal(await getDocumentTitle(protocol), 'MindLattice');
-  assert.equal(await locatorCount(protocol, 'main.app-shell'), 1);
-  assert.equal(await locatorCount(protocol, '[aria-label="Settings"]'), 1);
-  assert.equal(await locatorCount(protocol, '[aria-label="Star-map canvas"]'), 1);
-
   await fillByLabel(protocol, 'Model', 'mock-model');
   await fillByLabel(protocol, 'API key', 'local-key');
   await clickButton(protocol, 'Save provider');
@@ -93,13 +100,13 @@ async function runSmoke(protocol) {
 
   assert.equal(await isAgentComposerDisabled(protocol), false);
 
-  await fillByPlaceholder(protocol, 'Name the task to make visible', 'Ship browser smoke test');
-  await clickButton(protocol, 'Create task');
-  await waitForText(protocol, 'Created focus task: Ship browser smoke test.');
+  await clickButton(protocol, 'Close');
+  assert.equal(await locatorCount(protocol, '.context-drawer'), 0);
 
   await fillByAriaLabel(protocol, 'Message the execution agent', 'Break this down into one visible next action.');
   await clickElement(protocol, `document.querySelector('[aria-label="Send message"]')`);
   await waitForText(protocol, 'Preview drafted. Review it, revise it, or accept it before anything is saved.');
+  await clickButton(protocol, 'Preview');
   await waitForText(protocol, 'Accepting will add 1 draft node');
 
   await fillByAriaLabel(protocol, 'Message the execution agent', 'Make the next action smaller.');
@@ -110,6 +117,7 @@ async function runSmoke(protocol) {
   await clickButton(protocol, 'Accept');
   await waitForText(protocol, 'Write one rough bullet');
 
+  await clickButton(protocol, 'Node');
   await selectByLabel(protocol, 'Add nearby', 'blocker');
   await fillByPlaceholder(protocol, 'Name the nearby node', 'Missing source notes');
   await clickButton(protocol, 'Add node');
@@ -120,6 +128,7 @@ async function runSmoke(protocol) {
   await clickButton(protocol, 'Connect nodes');
   await waitForText(protocol, 'Connected Plan launch notes to Open the draft and write three bullets.');
 
+  await clickButton(protocol, 'Support');
   await clickTemplateAction(protocol, 'Visible short checklist', 'Adopt');
   await waitForText(protocol, 'Support adopted: Visible short checklist.');
   await selectByLabel(protocol, 'Support tried', 'Visible short checklist');
@@ -129,12 +138,15 @@ async function runSmoke(protocol) {
   await clickButton(protocol, 'Accept experiment');
   await waitForText(protocol, 'Strategy experiment accepted: keep visible-checklist.');
 
+  await clickButton(protocol, 'Start');
   await fillByPlaceholder(protocol, 'Did you start, where did it get stuck, or what should stay visible next?', 'Five-minute starts helped me return.');
   await clickButton(protocol, 'Save check-in');
   await waitForText(protocol, 'Check-in saved: Five-minute starts helped me return.');
+  await clickButton(protocol, 'Memory');
   await clickButton(protocol, 'Accept memory');
   await waitForText(protocol, 'Preference memory accepted: Five-minute starts helped me return.');
 
+  await clickButton(protocol, 'Vault');
   await fillByLabel(protocol, 'Markdown content', '# Imported browser smoke note\\nKeep this beside the map.');
   await clickButton(protocol, 'Preview import');
   await waitForText(protocol, 'Pending import');
@@ -142,13 +154,14 @@ async function runSmoke(protocol) {
   await waitForText(protocol, 'Vault import accepted: 1 node and 0 edges imported.');
   await waitForText(protocol, 'Imported browser smoke note');
 
+  await clickButton(protocol, 'Start');
   await clickButton(protocol, 'Enter Start Mode');
   await waitForText(protocol, 'Return to map');
   assert.equal(await locatorCount(protocol, '[aria-label="Focused Start Mode"]'), 1);
   assert.equal(await locatorCount(protocol, '[aria-label="Star-map canvas"]'), 0);
 
   await clickButton(protocol, 'Return to map');
-  await waitForText(protocol, 'Manual Markdown snapshot');
+  await waitForText(protocol, 'Current focus');
   assert.equal(await locatorCount(protocol, '[aria-label="Star-map canvas"]'), 1);
 
   const relevantConsoleEntries = consoleEntries.filter((entry) => !/Download the React DevTools/i.test(entry.text));

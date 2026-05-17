@@ -787,7 +787,7 @@ export async function createFocusTask(
         {
           id: `agent-${reloadedState.workbench.messages.length + 1}`,
           sender: 'agent',
-          body: `Created focus task: ${taskNode.title}.`,
+          body: sentenceWithTitle('Created focus task', taskNode.title),
         },
       ],
     },
@@ -872,26 +872,7 @@ export async function submitAgentMessage(
     return state;
   }
   if (state.contextProfile.llmProviderSetupState !== 'configured') {
-    const lastError = {
-      message: 'Configure an LLM provider before using the execution agent.',
-      detail: 'llm_provider_not_configured',
-    };
-    return {
-      ...state,
-      lastError,
-      workbench: {
-        ...state.workbench,
-        activePreview: null,
-        messages: [
-          ...state.workbench.messages,
-          {
-            id: `agent-${state.workbench.messages.length + 1}`,
-            sender: 'agent',
-            body: lastError.message,
-          },
-        ],
-      },
-    };
+    return createFocusTask(client, state, trimmedMessage);
   }
 
   const response = await client.agentTurnSubmit(
@@ -1176,4 +1157,8 @@ function clampCanvasPercent(value: number): number {
     return 50;
   }
   return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function sentenceWithTitle(prefix: string, title: string): string {
+  return /[.!?]$/.test(title) ? `${prefix}: ${title}` : `${prefix}: ${title}.`;
 }

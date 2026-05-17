@@ -121,7 +121,7 @@ test('initializes first-run LLM setup state from the context profile', async () 
   assert.deepEqual(state.contextProfile.executionDifficulties, ['task initiation']);
 });
 
-test('agent messages require LLM setup before promising the workflow', async () => {
+test('composer creates a manual focus task before LLM setup instead of promising the agent workflow', async () => {
   const baseClient = createMockCommandClient();
   let submittedMessage = null;
   const client = {
@@ -133,12 +133,14 @@ test('agent messages require LLM setup before promising the workflow', async () 
   };
   const initialState = await initializeWorkbench(client);
 
-  const nextState = await submitAgentMessage(client, initialState, 'Break this down.');
+  const nextState = await submitAgentMessage(client, initialState, 'Plan the draft intro.');
 
   assert.equal(submittedMessage, null);
   assert.equal(nextState.workbench.activePreview, null);
-  assert.equal(nextState.lastError.message, 'Configure an LLM provider before using the execution agent.');
-  assert.equal(nextState.workbench.messages.at(-1).body, 'Configure an LLM provider before using the execution agent.');
+  assert.equal(nextState.lastError, null);
+  assert.equal(nextState.workbench.nodes.some((node) => node.title === 'Plan the draft intro.'), true);
+  assert.equal(nextState.workbench.selectedNodeId, nextState.workbench.nodes.at(-1).id);
+  assert.equal(nextState.workbench.messages.at(-1).body, 'Created focus task: Plan the draft intro.');
 });
 
 test('saving LLM settings marks the profile configured and enables agent turns', async () => {
