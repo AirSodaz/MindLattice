@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MindLattice",
+  "version": "0.1.0",
+  "identifier": "local.mindlattice.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm --dir apps/desktop dev",
+    "beforeBuildCommand": "pnpm --dir apps/desktop build",
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "MindLattice",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico"]
+  }
+}

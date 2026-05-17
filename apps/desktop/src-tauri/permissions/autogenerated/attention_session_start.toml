@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-attention-session-start"
+description = "Enables the attention_session_start command without any pre-configured scope."
+commands.allow = ["attention_session_start"]
+
+[[permission]]
+identifier = "deny-attention-session-start"
+description = "Denies the attention_session_start command without any pre-configured scope."
+commands.deny = ["attention_session_start"]

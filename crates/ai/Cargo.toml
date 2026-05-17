@@ -1,0 +1,15 @@
+[package]
+name = "mindlattice-ai"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "mindlattice_ai"
+path = "src/lib.rs"
+
+[dependencies]
+reqwest = { version = "0.13", features = ["blocking", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

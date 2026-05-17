@@ -1,0 +1,15 @@
+[workspace]
+members = [
+  "apps/desktop/src-tauri",
+  "crates/agent",
+  "crates/ai",
+  "crates/core",
+  "crates/storage",
+  "crates/vault",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://example.invalid/mindlattice"

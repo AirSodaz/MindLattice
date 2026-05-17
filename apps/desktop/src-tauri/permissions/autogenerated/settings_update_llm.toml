@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-settings-update-llm"
+description = "Enables the settings_update_llm command without any pre-configured scope."
+commands.allow = ["settings_update_llm"]
+
+[[permission]]
+identifier = "deny-settings-update-llm"
+description = "Denies the settings_update_llm command without any pre-configured scope."
+commands.deny = ["settings_update_llm"]

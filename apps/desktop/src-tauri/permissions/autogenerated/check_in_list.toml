@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-check-in-list"
+description = "Enables the check_in_list command without any pre-configured scope."
+commands.allow = ["check_in_list"]
+
+[[permission]]
+identifier = "deny-check-in-list"
+description = "Denies the check_in_list command without any pre-configured scope."
+commands.deny = ["check_in_list"]

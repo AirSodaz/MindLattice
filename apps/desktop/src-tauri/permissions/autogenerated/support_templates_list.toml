@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-support-templates-list"
+description = "Enables the support_templates_list command without any pre-configured scope."
+commands.allow = ["support_templates_list"]
+
+[[permission]]
+identifier = "deny-support-templates-list"
+description = "Denies the support_templates_list command without any pre-configured scope."
+commands.deny = ["support_templates_list"]

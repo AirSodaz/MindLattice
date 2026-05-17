@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-strategy-cards-list"
+description = "Enables the strategy_cards_list command without any pre-configured scope."
+commands.allow = ["strategy_cards_list"]
+
+[[permission]]
+identifier = "deny-strategy-cards-list"
+description = "Denies the strategy_cards_list command without any pre-configured scope."
+commands.deny = ["strategy_cards_list"]

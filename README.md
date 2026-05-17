@@ -2,7 +2,7 @@
 
 MindLattice, Chinese working name "心格", is a desktop-first LLM-dependent self-help execution support tool for adults with ADHD traits who need help turning messy working memory into visible, startable action.
 
-The project is currently documentation-first. It does not yet include generated Tauri, React, Rust, or SQLite scaffolding.
+The project began as documentation-first and now includes the first Rust workspace scaffold for core, storage, AI-provider contracts, agent orchestration, Vault Markdown interoperability, a Tauri 2 desktop shell with a typed command bridge, file-backed app-data storage, and a React/Vite desktop UI scaffold. The AI crate includes an OpenAI-compatible provider transport that uses configured `base_url`, `api_key`, `model`, and timeout settings.
 
 ## Product Boundary
 
@@ -56,10 +56,12 @@ Excluded:
 MindLattice keeps product rules out of the interface:
 
 - `apps/desktop`: Tauri desktop app and React UI.
-- `crates/agent`: conversational agent loop, tool routing, structured skills, preview state, prompt orchestration, and confirmed memory policy.
 - `crates/core`: domain model, graph rules, support templates, strategy experiments, start plans, proposal validation, and safety boundaries.
-- `crates/storage`: SQLite migrations and repositories.
-- `crates/ai`: provider trait, request/response DTOs, and cloud adapter.
+- `crates/storage`: SQLite schema and repositories.
+- `crates/agent`: conversational agent loop foundation, structured skill specs, prompt orchestration, preview validation, and structured failure handling.
+- `crates/ai`: provider trait, structured request/response DTOs, and OpenAI-compatible transport.
+- `apps/desktop/src-tauri`: Tauri 2 shell and testable typed command boundary over storage, core, agent, and Vault scaffolds.
+- `apps/desktop/src`: React/Vite workbench scaffold for the agent thread, star-map canvas, preview review, inspector, Start Mode, and theme tokens.
 - `crates/vault`: manual Markdown import and export.
 
 The desktop UI MUST call typed Tauri commands for mutations. It MUST NOT directly read or write SQLite or own core task rules.
@@ -74,4 +76,4 @@ The desktop UI MUST call typed Tauri commands for mutations. It MUST NOT directl
 
 ## Repository Status
 
-This repository is intentionally small while the product shape is being validated. Implementation SHOULD begin from the documented architecture instead of inheriting premature scaffold structure.
+This repository is intentionally small while the product shape is being validated. Implementation has started with the documented Rust core, storage, AI contract, agent foundation, command boundary, and desktop UI shell.

@@ -4,12 +4,12 @@
 | --- | --- |
 | Status | Draft |
 | Owner | Product and engineering |
-| Last updated | 2026-05-16 |
+| Last updated | 2026-05-17 |
 | Scope | Documentation map and maintenance guide |
 
 ## Purpose
 
-This directory contains the source of truth for MindLattice planning until implementation scaffolding exists. Product, architecture, and development documents MUST remain aligned before code generation starts.
+This directory contains the source of truth for MindLattice product, architecture, and sequencing decisions. Product, architecture, and development documents MUST remain aligned before implementation changes product behavior or technical boundaries.
 
 ## Document Map
 
@@ -19,6 +19,7 @@ This directory contains the source of truth for MindLattice planning until imple
 | [UI Style](ui-style.md) | Defines cross-platform visual style, theme behavior, and design token rules. | Product, design, engineering | Visual style, themes, component styling, or platform UI rules change. |
 | [Architecture](architecture.md) | Defines technical boundaries, planned repo structure, DTOs, storage, commands, and safety architecture. | Engineering | Core interfaces, storage model, command surface, or platform assumptions change. |
 | [Development Plan](development-plan.md) | Defines implementation phases, dependencies, deliverables, and validation. | Engineering, QA | Phase order, test strategy, or release readiness changes. |
+| [Smoke Test Checklist](smoke-test-checklist.md) | Lists manual MVP checks for fresh install, agent flow, Start Mode, Vault, safety, and packaging. | Engineering, QA | Release validation scope or packaging gates change. |
 | [Documentation Standards](documentation-standards.md) | Defines writing rules for Markdown, terminology, evidence use, and safety language. | Anyone editing docs | Documentation style or governance rules change. |
 
 ## Maintenance Rules
@@ -33,4 +34,4 @@ This directory contains the source of truth for MindLattice planning until imple
 
 ## Current Repository State
 
-The repository is docs-first. Application code, migrations, and generated frontend scaffolding have not been created yet.
+The repository now includes the first Rust workspace scaffold under `crates/core`, `crates/storage`, `crates/ai`, `crates/agent`, `crates/vault`, and `apps/desktop/src-tauri`, plus a React/Vite desktop UI scaffold under `apps/desktop/src`. `crates/ai` includes an OpenAI-compatible chat-completions transport, and the desktop command runtime can load saved provider settings for live agent turns.

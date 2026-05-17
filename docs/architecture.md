@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Draft |
 | Owner | Engineering |
-| Last updated | 2026-05-16 |
+| Last updated | 2026-05-17 |
 | Scope | MVP and first release technical architecture |
 
 ## Principles
@@ -80,7 +80,7 @@ MindLattice/
   docs/
 ```
 
-The current repository is documentation-only. Application scaffolding SHOULD be created during implementation phases, not before the architecture is ready to execute.
+The current repository contains the first Rust workspace scaffold for `crates/core`, `crates/storage`, `crates/ai`, `crates/agent`, `crates/vault`, and `apps/desktop/src-tauri`, plus a React/Vite desktop UI scaffold under `apps/desktop/src`. `crates/ai` includes an OpenAI-compatible chat-completions transport, and the desktop command runtime can load saved provider settings for live agent turns.
 
 ## Boundaries
 
@@ -477,6 +477,8 @@ The first adapter SHOULD support:
 - `model`
 - request timeout
 
+The current crate implementation uses the same structured provider contract with a synchronous blocking transport until the runtime boundary is ready for async provider execution.
+
 Returned agent outputs MUST be validated before display:
 
 - Maximum 7 proposed nodes.
@@ -513,13 +515,22 @@ Failure responses MUST be short, actionable, and honest about whether the agent 
 
 ## Vault Import and Export
 
+The desktop shell uses Tauri dialog and filesystem plugins to let the user pick an import or export folder. Folder import only stages Markdown files into the existing preview flow; the SQLite graph changes only after the user accepts the preview. Folder export writes the current `vault_export` snapshot files to the selected folder.
+
 Import MUST:
 
 - Read Markdown files from a user-selected folder.
 - Parse YAML frontmatter when present.
+- Accept LF and CRLF Markdown line endings.
+- Decode common escape sequences in double-quoted YAML values.
+- Ignore YAML inline comments outside quoted values.
+- Parse literal and folded YAML block scalar values for text fields.
+- Preserve quoted commas in YAML inline and block-list `context_tags`.
 - Extract title from frontmatter, first heading, or filename.
+- Resolve duplicate imported titles and generated IDs with deterministic numeric suffixes.
 - Preserve body as note content.
 - Convert `[[wiki links]]` into `related` edges when both sides can be resolved.
+- Convert exported relationship-summary links into typed edges when both sides can be resolved.
 
 Export MUST:
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-preview-reject"
+description = "Enables the agent_preview_reject command without any pre-configured scope."
+commands.allow = ["agent_preview_reject"]
+
+[[permission]]
+identifier = "deny-agent-preview-reject"
+description = "Denies the agent_preview_reject command without any pre-configured scope."
+commands.deny = ["agent_preview_reject"]

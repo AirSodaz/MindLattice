@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-preview-revise"
+description = "Enables the agent_preview_revise command without any pre-configured scope."
+commands.allow = ["agent_preview_revise"]
+
+[[permission]]
+identifier = "deny-agent-preview-revise"
+description = "Denies the agent_preview_revise command without any pre-configured scope."
+commands.deny = ["agent_preview_revise"]

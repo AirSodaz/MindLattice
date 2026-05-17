@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-preview-get"
+description = "Enables the agent_preview_get command without any pre-configured scope."
+commands.allow = ["agent_preview_get"]
+
+[[permission]]
+identifier = "deny-agent-preview-get"
+description = "Denies the agent_preview_get command without any pre-configured scope."
+commands.deny = ["agent_preview_get"]

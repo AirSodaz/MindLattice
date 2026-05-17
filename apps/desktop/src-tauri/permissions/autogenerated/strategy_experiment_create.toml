@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-strategy-experiment-create"
+description = "Enables the strategy_experiment_create command without any pre-configured scope."
+commands.allow = ["strategy_experiment_create"]
+
+[[permission]]
+identifier = "deny-strategy-experiment-create"
+description = "Denies the strategy_experiment_create command without any pre-configured scope."
+commands.deny = ["strategy_experiment_create"]

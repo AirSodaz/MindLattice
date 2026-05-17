@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-memory-update"
+description = "Enables the agent_memory_update command without any pre-configured scope."
+commands.allow = ["agent_memory_update"]
+
+[[permission]]
+identifier = "deny-agent-memory-update"
+description = "Denies the agent_memory_update command without any pre-configured scope."
+commands.deny = ["agent_memory_update"]

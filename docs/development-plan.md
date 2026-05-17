@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Draft |
 | Owner | Engineering |
-| Last updated | 2026-05-16 |
+| Last updated | 2026-05-17 |
 | Scope | MVP implementation sequencing and validation |
 
 ## Goal
@@ -41,6 +41,12 @@ Acceptance criteria:
 
 ## Phase 1: Rust Core, Storage, and Support Content
 
+Status:
+
+- Started. The repository contains a Cargo workspace with `crates/core` and `crates/storage`.
+- Implemented so far: domain DTOs, typed node and edge validation, proposal limit and safety validation, static support templates, support-template adoption into support nodes, local strategy cards, strategy experiment validation, default context profiles, context profile validation, start-plan generation, attention-session creation, visible preference-memory proposal validation, versioned Phase 1 SQLite migration, schema migration version tracking, repository persistence for workspaces, nodes, edges, node notes, node execution metadata, map snapshots, strategy experiments, context profiles, attention sessions, AI proposal records, check-ins, accepted preference memory, agent skill runs, persisted agent thread, turn, preview-thread, and prompt-version state, and proposal lifecycle status tracking for active, accepted, and rejected previews.
+- Not yet implemented: no remaining Phase 1 MVP implementation gap is currently listed.
+
 Purpose:
 
 Create the UI-independent domain, persistence, and safety foundation before building the agent and UI.
@@ -69,6 +75,12 @@ Acceptance criteria:
 
 ## Phase 2: Agent Orchestrator, Skills, Prompts, and LLM Adapter
 
+Status:
+
+- Started. The repository contains `crates/ai` and `crates/agent`.
+- Implemented so far: `LlmProvider` trait, structured LLM request/response DTOs, provider configuration validation, OpenAI-compatible chat-completions transport using `base_url`, `api_key`, `model`, and per-request timeout, live command-runtime provider wiring from saved LLM settings, first-release agent skill specs, documented first-release typed tool registry with skill-tool validation, typed tool router scaffold for map summary, map preview proposal, map preview revision, accepted-preview write planning for graph node and edge previews, accepted-preview write planning for preference-memory, check-in, and strategy-experiment payloads, preference-memory retrieval, preference-memory proposal, proposal validation, support-template search, start-plan generation, check-in proposal, strategy-experiment proposal, Vault import preview, and safety review, deterministic preference-memory retrieval scaffold with prompt-context integration, versioned prompt asset files for policy, role, workflow, tools, and output style, prompt golden fixtures for capture, preview revision, Start Mode drafting, support matching, medical-boundary rejection, and crisis redirection, intent classification, ordered prompt-layer assembly with version trace, bounded agent-turn runner, persisted active-preview state across file-backed runtime reopen, validated preview output, structured provider-preview JSON parsing for graph and non-graph preview payloads, confirm-before-write response copy, missing-provider failure, tool-budget failure, timeout-budget failure, malformed-provider-output recovery, and safety-block failure.
+- Not yet implemented: no remaining Phase 2 MVP implementation gap is currently listed.
+
 Purpose:
 
 Build the controlled conversational execution agent before exposing it to the desktop UI.
@@ -96,6 +108,12 @@ Acceptance criteria:
 
 ## Phase 3: Tauri Command Boundary
 
+Status:
+
+- Started. The repository contains a testable command-boundary crate at `apps/desktop/src-tauri`.
+- Implemented so far: Tauri 2 app shell, file-backed app-data database path, `#[tauri::command]` bridge registration for the documented command names, default workspace open, map read, node create/update/move, edge create/delete, support-template listing, support adoption with persisted template-source note, adopted-support discard, strategy-card listing, strategy-experiment creation, attention-session start/close, context profile get/update, agent-turn submit with structured preview, preview get/reject, graph preview accept through the backend accepted-preview write plan, non-graph preview accept for preference-memory, check-in, and strategy-experiment payloads, mirrored AI proposal lifecycle status for active/accepted/rejected previews, preference-memory list/update/delete, check-in creation/listing with safety validation, LLM settings update with provider-config validation, Vault import/export command coverage, native Vault folder-picker integration, generated TypeScript DTO artifact consumed by the frontend command client, missing-provider command error, DTO-level tests showing commands return typed core values rather than raw database rows, and structured command-error presentation in the React UI.
+- Not yet implemented: no remaining Phase 3 MVP implementation gap is currently listed.
+
 Purpose:
 
 Expose core and agent behavior to the desktop app through stable typed commands.
@@ -118,6 +136,12 @@ Acceptance criteria:
 - Failed validation returns actionable structured errors.
 
 ## Phase 4: Conversational Star-Map Canvas MVP
+
+Status:
+
+- Started. The repository contains a React/Vite UI scaffold under `apps/desktop/src`.
+- Implemented so far: `Quiet Workshop` semantic theme tokens for light and dark themes, an agent-first workbench layout, agent thread, React Flow star-map canvas rendering for persisted and preview nodes/edges, quick-capture focus-task creation through the command client, command-backed surrounding-node creation with inferred typed edges, active preview review controls, natural-language active-preview revision through the backend command client, inspector surface with command-backed selected-node title/body editing, persisted node dragging from React Flow back into command-owned percentage positions, simple freeform edge editing between existing nodes, Start Mode surface, keyboard shortcuts for capture, selected-node save, and Start focus, support-template loading/adoption from the command client, adopted-support edit/discard from the UI and command boundary, custom user support node creation, reusable custom support-template library in the frontend workbench, direct strategy-experiment recording, visible saved check-in history, basic visible preference-memory management, theme preference resolution, dependency-light workbench model/controller tests, component-level server-render smoke coverage for the Settings surface, dependency-light MVP business smoke coverage for setup, capture, preview acceptance, map editing, support adoption, Start Mode, check-in, memory review, and Vault import, Browser smoke coverage for first app load with Settings readiness rendering and clean console output, and `corepack pnpm smoke:e2e` browser-driven automated smoke coverage against a running Vite app for first-load, Settings setup, agent preview/revision/acceptance, manual node and edge editing, support adoption, strategy experiment review, check-in and memory review, Vault import, Start Mode entry/return, and browser console warning/error checks.
+- Not yet implemented: no remaining Phase 4 MVP implementation gap is currently listed.
 
 Purpose:
 
@@ -150,6 +174,12 @@ Acceptance criteria:
 
 ## Phase 5: Low-Friction Start Mode and Follow-Up
 
+Status:
+
+- Started. The React workbench initializes Start Mode from the command-backed `start_plan_get` DTO when a next action exists.
+- Implemented so far: low-stimulus Start Mode panel rendering for one next action, parent task, minimum done, estimate, current blocker, one support or adjustment, start checks, return cue, dedicated Start Mode entry/exit view that hides map complexity, simple active-session timer state, natural-language follow-up prompt chips for check-ins, attention-session start/close controls from the command boundary, direct check-in persistence/listing from the command boundary with visible saved history and without scoring language, direct preference-memory proposal review with explicit accept/reject controls, strategy-experiment proposal review with explicit accept/reject controls, and LLM-drafted preference-memory and strategy-experiment preview payloads routed from agent follow-up turns into explicit frontend review queues before persistence.
+- Not yet implemented: no remaining Phase 5 MVP implementation gap is currently listed.
+
 Purpose:
 
 Turn the visual map into one startable action and a calm return path through the agent.
@@ -180,6 +210,12 @@ Acceptance criteria:
 
 ## Phase 6: Obsidian Import and Export
 
+Status:
+
+- Started. The repository contains `crates/vault` with manual Markdown import/export helpers and command-boundary wiring for `vault_import` and `vault_export`.
+- Implemented so far: readable one-file-per-node export with MindLattice frontmatter, metadata fields, relationship summaries, Markdown import from frontmatter/headings/filenames, CRLF and LF frontmatter/section parsing, deterministic suffix handling for duplicate imported titles and IDs, quoted scalar frontmatter values with common double-quoted escape sequences, literal and folded YAML block scalar values including `|-`, `|+`, `>-`, and `>+` chomping indicators, block-scalar blank-line and indent-indicator handling, block-scalar headers with inline comments, inline-comment stripping outside quoted YAML values, inline, multiline-flow, and block-list `context_tags` including quoted commas, Obsidian-style `tags` import as `context_tags`, wiki-link extraction, resolvable wiki links as `related` edges, typed edge import from exported relationship summaries, golden-style round-trip tests, native folder picker import/export through the Tauri dialog and filesystem plugins, and a manual React import-preview surface with explicit accept/reject before `vault_import`.
+- Not yet implemented: no remaining Phase 6 MVP implementation gap is currently listed.
+
 Purpose:
 
 Provide manual Markdown interoperability without making Obsidian the source of truth.
@@ -201,6 +237,11 @@ Acceptance criteria:
 - SQLite remains authoritative after import or export.
 
 ## Phase 7: Polish, Packaging, and Validation
+
+Status:
+
+- Started. Implemented so far: first-run local workspace creation through `workspace_open_default`, compact LLM provider setup in a dedicated Settings surface, settings readiness groups for required LLM provider setup, local profile, safety boundary, and interface preferences, `settings_update_llm` persistence, context-profile setup-state transition to `configured`, adult-context onboarding controls for local support matching, an agent-send guard that prevents promising the LLM workflow before provider setup, Windows Tauri bundle configuration with the packaged app icon enabled, manual MVP smoke-test checklist under `docs/smoke-test-checklist.md`, and Windows packaged build validation producing release executable, MSI, and NSIS installer artifacts.
+- Not yet implemented: no remaining Phase 7 MVP implementation gap is currently listed.
 
 Purpose:
 
@@ -248,6 +289,7 @@ Frontend:
 
 - Component tests for agent thread, preview review, inspector, environmental adjustment panel, support-template browser, strategy-card list, start-plan rendering, follow-up prompts, memory management, and proposal review.
 - End-to-end smoke tests for natural-language capture, preview revision, preview acceptance, map editing, support adoption, reload persistence, Start Mode, one-thing view, strategy experiment recording, memory review, and check-in creation.
+- Browser-driven automated smoke tests for first app load, Settings setup, agent preview/revision/acceptance, manual node and edge editing, support adoption, strategy experiment review, check-in and memory review, Vault import, Start Mode entry/return, and browser console warning/error checks through `corepack pnpm smoke:e2e`.
 
 Manual validation:
 
@@ -275,6 +317,7 @@ Documentation validation:
 
 ## Implementation Discipline
 
+- Current Rust verification command: `cargo test --workspace`.
 - Keep core logic out of React components.
 - Keep agent orchestration out of React components.
 - Keep Tauri command handlers thin.

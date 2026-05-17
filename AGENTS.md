@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-MindLattice is currently documentation-first. The root contains planning and governance files: `README.md`, `docs/`, `.editorconfig`, and `.markdownlint.json`. Product, architecture, and sequencing decisions live under `docs/`; update those documents before creating scaffolding that changes product behavior or technical boundaries.
+MindLattice began documentation-first and now includes the Phase 1-7 MVP scaffold. The root contains planning and governance files, plus the Cargo workspace. Product, architecture, and sequencing decisions live under `docs/`; update those documents before changing product behavior or technical boundaries.
 
 The planned implementation layout is:
 
@@ -10,21 +10,46 @@ The planned implementation layout is:
 apps/desktop/      Tauri 2 desktop shell, React/Vite UI, and src-tauri
 crates/core/       Rust domain rules, graph logic, safety checks, start plans
 crates/storage/    SQLite migrations and repositories
-crates/ai/         Optional AI provider trait and adapters
+crates/ai/         AI provider trait and OpenAI-compatible adapter
 crates/vault/      Manual Markdown import/export
 docs/              Product, architecture, plan, and documentation standards
 ```
 
 ## Build, Test, and Development Commands
 
-No package manager, Rust workspace, or CI scripts are present yet. Until implementation scaffolding exists, validate changes by reading the affected Markdown and checking repository status:
+The Rust workspace exists. Validate Rust changes with:
+
+```powershell
+cargo test --workspace
+```
+
+Validate the desktop UI scaffold with Corepack-pinned pnpm:
+
+```powershell
+corepack pnpm install --frozen-lockfile
+corepack pnpm test
+corepack pnpm build
+corepack pnpm smoke:e2e
+```
+
+Run the Tauri desktop shell locally with:
+
+```powershell
+corepack pnpm dev
+```
+
+For documentation-only changes, validate by reading the affected Markdown and checking repository status:
 
 ```powershell
 git status --short
 git diff -- docs README.md
 ```
 
-When the planned stack is added, document the exact `cargo`, `pnpm`, Tauri, lint, and test commands here before relying on them in PRs.
+Build the Windows Tauri package with:
+
+```powershell
+corepack pnpm tauri build
+```
 
 ## Coding Style & Naming Conventions
 
@@ -34,7 +59,9 @@ Follow repository terminology consistently: `MVP`, `First release`, `Start Mode`
 
 ## Testing Guidelines
 
-There are no executable tests yet. For documentation changes, verify that headings do not skip levels, links are stable, and requirements use observable language. Future Rust code should include unit tests for domain rules, graph validation, storage migrations, proposal safety, and start-plan generation. Future UI code should include component tests plus smoke coverage for capture, map editing, support adoption, persistence, and Start Mode.
+Rust code includes unit and integration tests for domain rules, graph validation, storage migrations, proposal safety, agent orchestration, command registration, Vault import/export, and start-plan generation. UI code includes Node test coverage for model/controller behavior, Settings rendering, command-client mapping, MVP business flow, and browser-driven smoke coverage for first load, Settings setup, quick capture, and Start Mode.
+
+For documentation changes, verify that headings do not skip levels, links are stable, and requirements use observable language. Keep `docs/development-plan.md` and `docs/smoke-test-checklist.md` aligned whenever validation scope changes.
 
 ## Commit & Pull Request Guidelines
 

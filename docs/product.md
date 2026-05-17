@@ -326,7 +326,7 @@ The default setup MUST configure the LLM provider path clearly enough for the co
 
 The first release MUST support manual Obsidian-compatible Markdown import and export.
 
-Import MUST read Markdown files, frontmatter when available, headings, body text, and wiki links such as `[[Example Note]]`.
+Import MUST read Markdown files with LF or CRLF line endings, frontmatter when available, headings, body text, wiki links such as `[[Example Note]]`, and exported relationship summaries. Duplicate imported titles or generated IDs MUST be resolved deterministically instead of silently overwriting nodes.
 
 Export MUST write readable Markdown files with frontmatter that preserves MindLattice IDs, node kinds, status, energy, friction, estimates, and relationship hints.
 
