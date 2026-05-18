@@ -60,7 +60,12 @@ test('builds a Start Mode view with one action and nearby context', () => {
     { label: 'Support', value: 'Visible short checklist' },
     { label: 'Return cue', value: 'Return to: Open the draft and write three bullets' },
   ]);
-  assert.deepEqual(view.checks, ['Material visible', 'Distraction named', 'Five-minute fit', 'Return cue ready']);
+  assert.deepEqual(view.checks, [
+    { label: 'Materials', value: 'Reference notes', checked: true },
+    { label: 'Current distraction', value: 'Missing examples', checked: true },
+    { label: 'Five-minute fit', value: 'Fits a five-minute start.', checked: true },
+    { label: 'Reopen target', value: 'Open the draft and write three bullets', checked: true },
+  ]);
 });
 
 test('enters and leaves a dedicated Start Mode view without changing map content', () => {
@@ -159,7 +164,7 @@ test('preview summary states concrete write counts', () => {
   const model = buildInitialWorkbench();
   assert.equal(
     previewWriteSummary(model.activePreview),
-    'Accepting will add 1 draft node, 1 draft edge, 0 memory updates, 0 check-ins, and 0 strategy experiments.',
+    'This will save 1 node and 1 link.',
   );
   assert.equal(
     previewWriteSummary({
@@ -168,7 +173,7 @@ test('preview summary states concrete write counts', () => {
       proposedCheckIns: [{ id: 'check-in-1' }],
       proposedStrategyExperiments: [{ id: 'strategy-1' }],
     }),
-    'Accepting will add 1 draft node, 1 draft edge, 1 memory update, 1 check-in, and 1 strategy experiment.',
+    'This will save 1 node and 1 link. It also includes 1 memory proposal, 1 check-in, 1 strategy experiment for review.',
   );
 });
 

@@ -7,9 +7,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { PreviewReviewPanel } from './PreviewReviewPanel';
 import { StartPanel } from './StartPanel';
 import { WorkbenchTaskPanels } from './WorkbenchTaskPanels';
+import { changeLanguagePreference } from '../../../shared/i18n/i18n';
 import { buildInitialWorkbench, buildPreviewDiff, buildReturnContext, recommendSupportTemplates } from '../workbenchModel';
 
-test('preview review renders concrete diff rows before acceptance', () => {
+test('preview review renders concrete diff rows before acceptance', async () => {
+  await changeLanguagePreference('en');
   const model = buildInitialWorkbench();
   const html = renderToStaticMarkup(
     React.createElement(PreviewReviewPanel, {
@@ -17,16 +19,27 @@ test('preview review renders concrete diff rows before acceptance', () => {
       previewDiff: buildPreviewDiff(model.activePreview),
       isBusy: false,
       onAccept: () => {},
+      onRevise: () => {},
       onReject: () => {},
     }),
   );
 
+  assert.match(html, /I drafted a structure. Nothing is saved yet./);
+  assert.match(html, /This will save 1 node and 1 link./);
   assert.match(html, /Add next action/);
   assert.match(html, /Find one example to paste below the outline/);
+  assert.match(html, /Draft/);
+  assert.match(html, /Revise/);
   assert.match(html, /No update or delete operations are included/);
+  assert.match(html, /class="[^"]*ml-surface[^"]*preview-surface/);
+  assert.match(html, /class="[^"]*ml-list-item[^"]*ml-list-item-draft/);
+  assert.match(html, /class="[^"]*ml-badge[^"]*ml-badge-draft/);
+  assert.match(html, /class="[^"]*ml-button[^"]*ml-button-primary/);
+  assert.match(html, /class="[^"]*ml-button[^"]*ml-button-secondary/);
 });
 
-test('start panel renders return context and smaller-action request', () => {
+test('start panel renders return context and smaller-action request', async () => {
+  await changeLanguagePreference('en');
   const model = buildInitialWorkbench();
   const html = renderToStaticMarkup(
     React.createElement(StartPanel, {
@@ -42,7 +55,7 @@ test('start panel renders return context and smaller-action request', () => {
       startModeView: {
         nextAction: 'Open the draft and write three bullets',
         minimumDone: 'Three bullets exist.',
-        checks: ['Five-minute fit'],
+        checks: [{ label: 'Five-minute fit', value: 'Fits a five-minute start.', checked: true }],
         details: [],
       },
       startTimerState: null,
@@ -58,7 +71,13 @@ test('start panel renders return context and smaller-action request', () => {
 
   assert.match(html, /Return context/);
   assert.match(html, /Open the draft and write three bullets/);
-  assert.match(html, /Make smaller/);
+  assert.match(html, /Make this smaller./);
+  assert.match(html, /Start with five minutes./);
+  assert.match(html, /Leave a return cue for later./);
+  assert.match(html, /Five-minute fit/);
+  assert.match(html, /class="[^"]*ml-surface[^"]*start-mode-surface/);
+  assert.match(html, /class="[^"]*ml-button[^"]*ml-button-primary/);
+  assert.match(html, /class="[^"]*ml-list-item[^"]*start-check-row/);
 });
 
 test('task panels render support reasons, memory batch review, and export profiles', () => {
@@ -91,6 +110,7 @@ test('task panels render support reasons, memory batch review, and export profil
     isSupportAdopting: false,
     isSupportSaving: false,
     isVaultBusy: false,
+    memoryReviewPanel: React.createElement('section', {}, 'Agent proposed memory Accept all reviewed'),
     memoryDrafts: {},
     pendingMemoryDrafts: { 'memory-1': 'Prefer visible return cues.' },
     pendingMemoryProposals: [
@@ -151,8 +171,12 @@ test('task panels render support reasons, memory batch review, and export profil
 
   assert.match(supportHtml, /Recommended because/);
   assert.match(supportHtml, /keeps the first action small and visible/);
+  assert.match(memoryHtml, /Confirmed preferences/);
+  assert.match(memoryHtml, /Only confirmed memory is listed here/);
+  assert.match(memoryHtml, /Agent proposed memory/);
   assert.match(memoryHtml, /Accept all reviewed/);
-  assert.match(memoryHtml, /Reject all/);
+  assert.match(memoryHtml, /class="[^"]*ml-surface[^"]*memory-surface/);
+  assert.match(memoryHtml, /class="[^"]*ml-notice[^"]*ml-notice-draft/);
   assert.match(vaultHtml, /Preview Obsidian export/);
   assert.match(vaultHtml, /Export plain folder/);
 });

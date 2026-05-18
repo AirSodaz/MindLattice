@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { CommandSupportCategory } from '../../shared/api/commandClient';
 import '../../shared/i18n/i18n';
 import type { LanguagePreference } from '../../shared/i18n/i18n';
+import { Button, Field, Notice, Surface } from '../../shared/ui';
 import type { ThemePreference } from '../workbench/workbenchModel';
 import type {
   LlmApiMode,
@@ -35,6 +36,7 @@ export type SettingsPanelProps = {
   isLlmTesting?: boolean;
   isLlmSaving: boolean;
   isOnboardingSaving: boolean;
+  canSaveLlmSettings: boolean;
   llmApiKey: string;
   llmApiMode: LlmApiMode;
   llmApiModeOptions: LlmApiModeOption[];
@@ -50,6 +52,7 @@ export type SettingsPanelProps = {
   onboardingSupportCategories: CommandSupportCategory[];
   providerTestMessage?: string | null;
   providerTestStatus?: 'idle' | 'ok' | 'failed';
+  saveLlmBlockedReason?: string | null;
   onTestLlmSettings?: () => void;
   onSaveLlmSettings: () => void;
   onSaveOnboardingProfile: () => void;
@@ -77,6 +80,7 @@ export function SettingsPanel({
   isLlmTesting = false,
   isLlmSaving,
   isOnboardingSaving,
+  canSaveLlmSettings,
   llmApiKey,
   llmApiMode,
   llmApiModeOptions,
@@ -106,6 +110,7 @@ export function SettingsPanel({
   onThemePreferenceChange,
   providerTestMessage,
   providerTestStatus = 'idle',
+  saveLlmBlockedReason,
   settingsSections,
   supportCategoryOptions,
   themeOptions,
@@ -122,11 +127,13 @@ export function SettingsPanel({
   };
 
   return (
-    <section className="settings-surface" aria-label={t('settings.aria')}>
-      <div>
-        <span className="eyebrow">{t('settings.eyebrow')}</span>
-        <h2>{t('settings.title')}</h2>
-      </div>
+    <Surface
+      className="settings-surface"
+      tone="settings"
+      eyebrow={t('settings.eyebrow')}
+      title={t('settings.title')}
+      aria-label={t('settings.aria')}
+    >
       <div className="settings-status-grid" aria-label={t('settings.readiness')}>
         {settingsSections.map((section) => (
           <article className={`settings-status settings-status-${section.status}`} key={section.id}>
@@ -149,8 +156,7 @@ export function SettingsPanel({
           <span className="eyebrow">{t('settings.provider.eyebrow')}</span>
           <h3>{t('settings.provider.title')}</h3>
         </div>
-        <label>
-          {t('provider.preset')}
+        <Field label={t('provider.preset')}>
           <select
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmProviderPresetChange(event.target.value as LlmProviderId)}
@@ -162,9 +168,8 @@ export function SettingsPanel({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          {t('provider.apiMode')}
+        </Field>
+        <Field label={t('provider.apiMode')}>
           <select
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmApiModeChange(event.target.value as LlmApiMode)}
@@ -176,36 +181,31 @@ export function SettingsPanel({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          {t('provider.baseUrl')}
+        </Field>
+        <Field label={t('provider.baseUrl')} help={t('provider.baseUrlHelp')}>
           <input
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmBaseUrlChange(event.target.value)}
             value={llmBaseUrl}
           />
-          <span className="field-help">{t('provider.baseUrlHelp')}</span>
-        </label>
-        <label>
-          {t('provider.apiKey')}
+        </Field>
+        <Field label={t('provider.apiKey')}>
           <input
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmApiKeyChange(event.target.value)}
             type="password"
             value={llmApiKey}
           />
-        </label>
-        <label>
-          {t('provider.model')}
+        </Field>
+        <Field label={t('provider.model')}>
           <input
             disabled={isLlmSaving || isLlmTesting}
             onChange={(event) => onLlmModelChange(event.target.value)}
             placeholder="gpt-4.1-mini or local model"
             value={llmModel}
           />
-        </label>
-        <label>
-          {t('provider.timeout')}
+        </Field>
+        <Field label={t('provider.timeout')}>
           <input
             disabled={isLlmSaving || isLlmTesting}
             min={5}
@@ -213,23 +213,47 @@ export function SettingsPanel({
             type="number"
             value={llmTimeoutSeconds}
           />
-        </label>
+        </Field>
         {providerTestMessage ? (
-          <p className={`provider-test-status provider-test-status-${providerTestStatus}`}>
+          <Notice
+            className={`provider-test-status provider-test-status-${providerTestStatus}`}
+            tone={providerTestStatus === 'ok' ? 'ok' : providerTestStatus === 'failed' ? 'error' : 'warning'}
+          >
             {providerTestMessage}
-          </p>
+          </Notice>
+        ) : (
+          <Notice className="provider-test-status provider-test-status-idle" tone="warning">
+            {t('provider.testDoesNotSave')}
+          </Notice>
+        )}
+        {!canSaveLlmSettings && saveLlmBlockedReason ? (
+          <Notice className="provider-save-hint" tone="warning">
+            {saveLlmBlockedReason}
+          </Notice>
         ) : null}
         <div className="action-row">
-          <button
+          <Button
             disabled={isLlmTesting || isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()}
             onClick={onTestLlmSettings}
             type="button"
+            variant="secondary"
           >
             {t('provider.testConnection')}
-          </button>
-          <button disabled={isLlmSaving || isLlmTesting || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()} type="submit">
+          </Button>
+          <Button
+            disabled={
+              isLlmSaving ||
+              isLlmTesting ||
+              !llmBaseUrl.trim() ||
+              !llmApiKey.trim() ||
+              !llmModel.trim() ||
+              !canSaveLlmSettings
+            }
+            type="submit"
+            variant="primary"
+          >
             {t('provider.saveProvider')}
-          </button>
+          </Button>
         </div>
       </form>
       <form className="settings-form" onSubmit={handleProfileSubmit}>
@@ -294,9 +318,9 @@ export function SettingsPanel({
             ))}
           </select>
         </label>
-        <button disabled={isOnboardingSaving} type="submit">
+        <Button disabled={isOnboardingSaving} type="submit" variant="secondary">
           {t('settings.profile.save')}
-        </button>
+        </Button>
       </form>
       <div className="settings-form settings-boundary" aria-label="Safety boundary">
         <div>
@@ -325,18 +349,19 @@ export function SettingsPanel({
         </label>
         <div className="theme-control settings-theme-control" aria-label={t('settings.theme.title')}>
           {themeOptions.map((option) => (
-            <button
+            <Button
               className={themePreference === option.value ? 'is-active' : ''}
               key={option.value}
               onClick={() => onThemePreferenceChange(option.value)}
               type="button"
+              variant="ghost"
             >
               {option.value === 'dark' ? <Moon aria-hidden="true" size={16} /> : <Sun aria-hidden="true" size={16} />}
               {option.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
-    </section>
+    </Surface>
   );
 }

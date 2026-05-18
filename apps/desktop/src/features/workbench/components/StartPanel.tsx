@@ -1,8 +1,9 @@
-import { Activity } from 'lucide-react';
+import { Check, Circle } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import '../../../shared/i18n/i18n';
+import { Button, Surface } from '../../../shared/ui';
 import type {
   ActiveAttentionSession,
   StartModeView,
@@ -72,18 +73,20 @@ export function StartPanel({
   };
 
   return (
-    <section className="start-mode-surface" aria-label={t('start.aria')}>
-      <div className="start-mode-header">
-        <div>
-          <span className="eyebrow">{t('start.title')}</span>
-          <h2>{startModeView.nextAction}</h2>
-        </div>
-        {onEnterFocusMode ? (
-          <button disabled={!hasStartableAction} onClick={onEnterFocusMode} type="button">
+    <Surface
+      className="start-mode-surface"
+      tone="start"
+      eyebrow={t('start.title')}
+      title={startModeView.nextAction}
+      actions={
+        onEnterFocusMode ? (
+          <Button disabled={!hasStartableAction} onClick={onEnterFocusMode} type="button" variant="secondary">
             {t('start.enter')}
-          </button>
-        ) : null}
-      </div>
+          </Button>
+        ) : null
+      }
+      aria-label={t('start.aria')}
+    >
       <p>{startModeView.minimumDone}</p>
       {returnContext ? (
         <div className="return-context" aria-label="Return context">
@@ -140,40 +143,51 @@ export function StartPanel({
               placeholder={t('start.closePlaceholder')}
               value={sessionCompletionNote}
             />
-            <button disabled={isSessionBusy} type="submit">
+            <Button disabled={isSessionBusy} type="submit" variant="primary">
               {t('start.closeSession')}
-            </button>
+            </Button>
           </form>
         ) : (
-          <button disabled={isSessionBusy || !hasStartableAction} onClick={onStartSession} type="button">
-            {t('start.startFocus')}
-          </button>
+          <Button disabled={isSessionBusy || !hasStartableAction} onClick={onStartSession} type="button" variant="primary">
+            {t('start.startFiveMinutes')}
+          </Button>
         )}
         {onRequestSmallerAction ? (
-          <button
-            className="secondary"
+          <Button
             disabled={isSessionBusy || !hasStartableAction}
             onClick={onRequestSmallerAction}
             type="button"
+            variant="secondary"
           >
-            Make smaller
-          </button>
+            {t('start.makeSmaller')}
+          </Button>
         ) : null}
+        <Button disabled={!hasStartableAction} type="button" variant="secondary">
+          {t('start.leaveReturnCue')}
+        </Button>
       </div>
-      <ul>
+      <ul className="start-check-list" aria-label={t('start.startCheck')}>
         {startModeView.checks.map((check) => (
-          <li key={check}>
-            <Activity aria-hidden="true" size={15} />
-            {check}
+          <li className="ml-list-item start-check-row" key={check.label}>
+            {check.checked ? <Check aria-hidden="true" size={15} /> : <Circle aria-hidden="true" size={15} />}
+            <span>{check.label}</span>
+            <strong>{check.value}</strong>
           </li>
         ))}
       </ul>
       <form className="check-in-form" onSubmit={handleCheckInSubmit}>
         <div className="follow-up-prompts" aria-label={t('start.followUpPrompts')}>
           {followUpPrompts.map((prompt) => (
-            <button disabled={isCheckInSaving} key={prompt} onClick={() => onCheckInDraftChange(prompt)} type="button">
+            <Button
+              disabled={isCheckInSaving}
+              key={prompt}
+              onClick={() => onCheckInDraftChange(prompt)}
+              size="small"
+              type="button"
+              variant="ghost"
+            >
               {prompt}
-            </button>
+            </Button>
           ))}
         </div>
         <label>
@@ -185,12 +199,12 @@ export function StartPanel({
             value={checkInDraft}
           />
         </label>
-        <button disabled={isCheckInSaving || !checkInDraft.trim() || !workspaceReady} type="submit">
+        <Button disabled={isCheckInSaving || !checkInDraft.trim() || !workspaceReady} type="submit" variant="secondary">
           {t('start.saveCheckIn')}
-        </button>
+        </Button>
       </form>
       <CheckInHistory checkIns={checkIns} />
-    </section>
+    </Surface>
   );
 }
 

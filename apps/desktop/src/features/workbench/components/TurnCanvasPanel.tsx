@@ -9,6 +9,7 @@ import type {
   WorkbenchNode,
 } from '../workbenchModel';
 import { WorkbenchFlow, type WorkbenchFlowNodeData } from './WorkbenchFlow';
+import { Button } from '../../../shared/ui';
 
 export type TurnCanvasPanelProps = {
   elements: ReactFlowWorkbenchElements;
@@ -49,27 +50,38 @@ export function TurnCanvasPanel({
           <h2>{focusTaskTitle}</h2>
         </div>
         <div className="workspace-actions" aria-label="Workspace tools">
-          <button className={hasActivePreview ? 'has-preview' : ''} disabled={!hasActivePreview} onClick={onOpenPreview} type="button">
+          <Button
+            className={hasActivePreview ? 'has-preview' : ''}
+            disabled={!hasActivePreview}
+            onClick={onOpenPreview}
+            type="button"
+            variant={hasActivePreview ? 'draft' : 'secondary'}
+          >
             Preview
-          </button>
-          <button disabled={!selectedNode} onClick={onOpenAdvancedMap} type="button">
+          </Button>
+          <Button disabled={!selectedNode} onClick={onOpenAdvancedMap} type="button" variant="secondary">
             Advanced map
-          </button>
-          <button disabled={!workbench.nodes.some((node) => node.kind === 'next_action')} onClick={onOpenStart} type="button">
+          </Button>
+          <Button
+            disabled={!workbench.nodes.some((node) => node.kind === 'next_action')}
+            onClick={onOpenStart}
+            type="button"
+            variant="secondary"
+          >
             Start
-          </button>
-          <button onClick={() => onOpenTaskPanel('support')} type="button">
+          </Button>
+          <Button onClick={() => onOpenTaskPanel('support')} type="button" variant="ghost">
             Support
-          </button>
-          <button onClick={() => onOpenTaskPanel('memory')} type="button">
+          </Button>
+          <Button onClick={() => onOpenTaskPanel('memory')} type="button" variant="ghost">
             Memory
-          </button>
-          <button onClick={() => onOpenTaskPanel('vault')} type="button">
+          </Button>
+          <Button onClick={() => onOpenTaskPanel('vault')} type="button" variant="ghost">
             Vault
-          </button>
-          <button onClick={() => onOpenTaskPanel('settings')} type="button">
+          </Button>
+          <Button onClick={() => onOpenTaskPanel('settings')} type="button" variant="ghost">
             Settings
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -91,10 +103,15 @@ export function TurnCanvasPanel({
       </section>
 
       {hasActivePreview ? (
-        <button className="preview-chip" onClick={onOpenPreview} type="button">
-          <CircleDot aria-hidden="true" size={16} />
+        <Button
+          className="preview-chip"
+          icon={<CircleDot aria-hidden="true" size={16} />}
+          onClick={onOpenPreview}
+          type="button"
+          variant="draft"
+        >
           Active preview ready for review
-        </button>
+        </Button>
       ) : null}
 
       <WorkbenchFlow

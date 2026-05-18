@@ -1,5 +1,6 @@
 import type { Node, OnNodeDrag } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SettingsPanel } from '../features/settings/SettingsPanel';
 import {
   acceptActivePreview,
@@ -79,8 +80,10 @@ import {
 import { createCommandClient } from '../shared/api/commandClient';
 import type { VaultExportProfile } from '../shared/api/commandClient';
 import { changeLanguagePreference, type LanguagePreference } from '../shared/i18n/i18n';
+import { Button, Field, Surface } from '../shared/ui';
 import type {
   CommandExperimentContext,
+  CommandLlmSettings,
   CommandStrategyDecision,
   CommandSupportCategory,
 } from '../shared/api/commandClient';
@@ -128,6 +131,7 @@ const supportCategoryOptions: Array<{ value: CommandSupportCategory; label: stri
 const flowCanvasSize = { width: 1000, height: 700 };
 
 export function App() {
+  const { t } = useTranslation('common');
   const [themePreference, setThemePreference] = useState<ThemePreference>('system');
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() => initialLanguagePreference());
   const [requestedPane, setRequestedPane] = useState<'setup' | 'advanced_map' | 'start' | null>(null);
@@ -255,6 +259,27 @@ export function App() {
     [screenState.attentionSession, timerNowIso],
   );
   const followUpPrompts = useMemo(() => followUpPromptOptions(), []);
+  const draftLlmSettings = useMemo<CommandLlmSettings>(
+    () => ({
+      providerId: llmProviderId,
+      apiMode: llmApiMode,
+      baseUrl: llmBaseUrl,
+      apiKey: llmApiKey,
+      model: llmModel,
+      timeoutSeconds: llmTimeoutSeconds,
+    }),
+    [llmApiKey, llmApiMode, llmBaseUrl, llmModel, llmProviderId, llmTimeoutSeconds],
+  );
+  const isProviderFormComplete = Boolean(llmBaseUrl.trim() && llmApiKey.trim() && llmModel.trim());
+  const hasFreshProviderTest =
+    Boolean(screenState.providerTestResult) &&
+    Boolean(screenState.providerTestedSettings) &&
+    sameLlmSettings(screenState.providerTestedSettings, draftLlmSettings);
+  const providerSaveBlockedReason = !isProviderFormComplete
+    ? t('provider.saveBlocked.missing')
+    : hasFreshProviderTest
+      ? null
+      : t('provider.saveBlocked.needsFreshTest');
   const flowElements = useMemo(
     () => reactFlowElementsFromWorkbench(workbench, flowCanvasSize),
     [workbench],
@@ -717,6 +742,10 @@ export function App() {
                 setScreenState(await acceptActivePreview(commandClient, screenState));
                 setRequestedPane(null);
               }}
+              onRevise={() => {
+                setComposerValue('Make this smaller.');
+                composerInputRef.current?.focus();
+              }}
               onReject={async () => {
                 setScreenState(await rejectActivePreview(commandClient, screenState));
                 setRequestedPane(null);
@@ -729,18 +758,20 @@ export function App() {
               apiMode={llmApiMode}
               apiModeOptions={apiModeOptions}
               baseUrl={llmBaseUrl}
+              canSave={hasFreshProviderTest}
               isSaving={isLlmSaving}
               isTesting={isLlmTesting}
               model={llmModel}
               providerId={llmProviderId}
               providerPresets={llmProviderPresets}
+              saveBlockedReason={providerSaveBlockedReason}
               onApiKeyChange={handleLlmApiKeyChange}
               onApiModeChange={handleLlmApiModeChange}
               onBaseUrlChange={handleLlmBaseUrlChange}
               onModelChange={handleLlmModelChange}
               onProviderPresetChange={handleLlmProviderPresetChange}
               onSave={async () => {
-                if (isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
+                if (isLlmSaving || !isProviderFormComplete || !hasFreshProviderTest) {
                   return;
                 }
                 setIsLlmSaving(true);
@@ -879,6 +910,40 @@ export function App() {
               isSupportAdopting={isSupportAdopting}
               isSupportSaving={isSupportSaving}
               isVaultBusy={isVaultBusy}
+              memoryReviewPanel={
+                screenState.pendingMemoryProposals.length > 0 ? (
+                  <MemoryProposalReview
+                    drafts={pendingMemoryDrafts}
+                    isSaving={isMemorySaving}
+                    proposals={screenState.pendingMemoryProposals}
+                    onAcceptAll={async (drafts) => {
+                      setIsMemorySaving(true);
+                      try {
+                        setScreenState(await acceptAllPreferenceMemoryProposals(commandClient, screenState, drafts));
+                      } finally {
+                        setIsMemorySaving(false);
+                      }
+                    }}
+                    onAcceptOne={async (memoryId, text) => {
+                      setIsMemorySaving(true);
+                      try {
+                        setScreenState(await acceptPreferenceMemoryProposal(commandClient, screenState, memoryId, text));
+                      } finally {
+                        setIsMemorySaving(false);
+                      }
+                    }}
+                    onDraftChange={(memoryId, value) => {
+                      setPendingMemoryDrafts((current) => ({ ...current, [memoryId]: value }));
+                    }}
+                    onRejectAll={() => {
+                      setScreenState((current) => rejectAllPreferenceMemoryProposals(current));
+                    }}
+                    onRejectOne={(memoryId) => {
+                      setScreenState((current) => rejectPreferenceMemoryProposal(current, memoryId));
+                    }}
+                  />
+                ) : null
+              }
               memoryDrafts={memoryDrafts}
               onAcceptAllMemoryProposals={async (drafts) => {
                 setIsMemorySaving(true);
@@ -1058,6 +1123,7 @@ export function App() {
                   isLlmSaving={isLlmSaving}
                   isLlmTesting={isLlmTesting}
                   isOnboardingSaving={isOnboardingSaving}
+                  canSaveLlmSettings={hasFreshProviderTest}
                   llmApiKey={llmApiKey}
                   llmApiMode={llmApiMode}
                   llmApiModeOptions={apiModeOptions}
@@ -1082,7 +1148,7 @@ export function App() {
                   onOnboardingDifficultiesChange={setOnboardingDifficulties}
                   onOnboardingSupportCategoriesChange={setOnboardingSupportCategories}
                   onSaveLlmSettings={async () => {
-                    if (isLlmSaving || !llmBaseUrl.trim() || !llmApiKey.trim() || !llmModel.trim()) {
+                    if (isLlmSaving || !isProviderFormComplete || !hasFreshProviderTest) {
                       return;
                     }
                     setIsLlmSaving(true);
@@ -1156,6 +1222,7 @@ export function App() {
                   profile={screenState.contextProfile}
                   providerTestMessage={screenState.providerTestResult?.message ?? null}
                   providerTestStatus={screenState.providerTestResult ? 'ok' : 'idle'}
+                  saveLlmBlockedReason={providerSaveBlockedReason}
                   settingsSections={settingsSections}
                   supportCategoryOptions={supportCategoryOptions}
                   themeOptions={themeOptions}
@@ -1179,8 +1246,7 @@ export function App() {
               <span className="eyebrow">Start Mode</span>
               <h2>{startModeView.nextAction}</h2>
             </div>
-            <button
-              className="secondary"
+            <Button
               onClick={() =>
                 setScreenState((current) => ({
                   ...current,
@@ -1188,9 +1254,10 @@ export function App() {
                 }))
               }
               type="button"
+              variant="secondary"
             >
               Return to map
-            </button>
+            </Button>
           </div>
           <StartPanel
             attentionSession={screenState.attentionSession}
@@ -1261,6 +1328,93 @@ function initialLanguagePreference(): LanguagePreference {
   return savedPreference === 'en' || savedPreference === 'zh-CN' || savedPreference === 'system'
     ? savedPreference
     : 'system';
+}
+
+function sameLlmSettings(left: CommandLlmSettings | null, right: CommandLlmSettings): boolean {
+  return Boolean(
+    left &&
+      left.providerId === right.providerId &&
+      left.apiMode === right.apiMode &&
+      left.baseUrl === right.baseUrl &&
+      left.apiKey === right.apiKey &&
+      left.model === right.model &&
+      left.timeoutSeconds === right.timeoutSeconds,
+  );
+}
+
+function MemoryProposalReview({
+  drafts,
+  isSaving,
+  proposals,
+  onAcceptAll,
+  onAcceptOne,
+  onDraftChange,
+  onRejectAll,
+  onRejectOne,
+}: {
+  drafts: Record<string, string>;
+  isSaving: boolean;
+  proposals: Array<{ id: string; proposedMemoryText: string; evidenceReference?: string | null }>;
+  onAcceptAll: (drafts: Record<string, string>) => void;
+  onAcceptOne: (memoryId: string, text: string) => void;
+  onDraftChange: (memoryId: string, value: string) => void;
+  onRejectAll: () => void;
+  onRejectOne: (memoryId: string) => void;
+}) {
+  return (
+    <Surface
+      className="memory-review-surface"
+      tone="preview"
+      eyebrow="Preview review"
+      title="Agent proposed memory"
+      aria-label="Pending preference memory proposals"
+    >
+      <p>Nothing is saved yet. Review each proposed preference before it becomes confirmed memory.</p>
+      <div className="memory-batch-actions action-row">
+        <Button disabled={isSaving} onClick={() => onAcceptAll(drafts)} type="button" variant="primary">
+          Accept all reviewed
+        </Button>
+        <Button disabled={isSaving} onClick={onRejectAll} type="button" variant="secondary">
+          Reject all
+        </Button>
+      </div>
+      <div className="memory-list">
+        {proposals.map((memory) => {
+          const draft = drafts[memory.id] ?? memory.proposedMemoryText;
+          return (
+            <form
+              className="memory-item pending ml-list-item ml-list-item-draft"
+              key={memory.id}
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!draft.trim()) {
+                  return;
+                }
+                onAcceptOne(memory.id, draft);
+              }}
+            >
+              <Field label="Proposed preference">
+                <textarea
+                  disabled={isSaving}
+                  onChange={(event) => onDraftChange(memory.id, event.target.value)}
+                  value={draft}
+                />
+              </Field>
+              {memory.evidenceReference ? <span>Evidence: {memory.evidenceReference}</span> : null}
+              <div className="action-row">
+                <Button disabled={isSaving || !draft.trim()} type="submit" variant="primary">
+                  Accept memory
+                </Button>
+                <Button disabled={isSaving} onClick={() => onRejectOne(memory.id)} type="button" variant="secondary">
+                  Reject
+                </Button>
+              </div>
+            </form>
+          );
+        })}
+      </div>
+    </Surface>
+  );
 }
 
 function resolveInitialHydratedLanguagePreference(

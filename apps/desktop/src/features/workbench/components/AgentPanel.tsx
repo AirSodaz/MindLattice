@@ -3,6 +3,7 @@ import type { FormEvent, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import '../../../shared/i18n/i18n';
+import { Button } from '../../../shared/ui';
 import type { WorkbenchModel } from '../workbenchModel';
 
 export type AgentPanelProps = {
@@ -40,7 +41,7 @@ export function AgentPanel({
   };
 
   return (
-    <aside className="agent-panel" aria-label="Conversational execution agent">
+    <aside className="ml-pane agent-panel" aria-label="Conversational execution agent">
       <div className="panel-heading">
         <div>
           <span className="eyebrow">{t('common.mindLattice')}</span>
@@ -54,9 +55,9 @@ export function AgentPanel({
           <span className="eyebrow">{t('agent.setupRequired')}</span>
           <h2>{t('agent.configureLlm')}</h2>
           <p>{t('agent.configureLlmDescription')}</p>
-          <button onClick={onConfigureLlm} type="button">
+          <Button onClick={onConfigureLlm} type="button" variant="primary">
             {t('agent.configureLlm')}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -82,13 +83,13 @@ export function AgentPanel({
           ref={composerInputRef}
           value={composerValue}
         />
-        <button
+        <Button
           aria-label={t('agent.send')}
           disabled={composerDisabled || !composerValue.trim()}
+          icon={<Send aria-hidden="true" size={18} />}
+          size="icon"
           type="submit"
-        >
-          <Send aria-hidden="true" size={18} />
-        </button>
+        />
       </form>
     </aside>
   );

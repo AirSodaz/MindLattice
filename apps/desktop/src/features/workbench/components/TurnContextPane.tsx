@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { Button } from '../../../shared/ui';
 import { type RightPaneMode, type WorkbenchTaskPanel } from '../workbenchModel';
 
 export type TurnContextPaneProps = {
@@ -30,16 +31,16 @@ export function TurnContextPane({
   const title = mode === 'task_panel' ? taskPanelTitle(taskPanel) : paneTitle(mode);
   const canReturnToCanvas = mode === 'advanced_map' || mode === 'start' || mode === 'task_panel';
   return (
-    <section className={`turn-context-pane turn-context-pane-${mode}`} aria-label="Turn context pane">
+    <section className={`ml-pane turn-context-pane turn-context-pane-${mode}`} aria-label="Turn context pane">
       <div className="turn-context-heading">
         <div>
           <span className="eyebrow">Right pane</span>
           <h2>{title}</h2>
         </div>
         {canReturnToCanvas && onBackToCanvas ? (
-          <button className="secondary" onClick={onBackToCanvas} type="button">
+          <Button onClick={onBackToCanvas} type="button" variant="secondary">
             Back to canvas
-          </button>
+          </Button>
         ) : null}
       </div>
       {mode === 'setup' ? setup : null}

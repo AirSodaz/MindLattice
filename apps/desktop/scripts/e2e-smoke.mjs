@@ -89,8 +89,10 @@ async function runSmoke(protocol) {
   await clickButton(protocol, 'Configure LLM');
   await waitForText(protocol, 'Provider setup');
   await waitForText(protocol, 'Required for the execution agent.');
+  await waitForText(protocol, 'Testing checks this draft only. Nothing is saved yet.');
   await fillByLabel(protocol, 'Model', 'mock-model');
   await fillByLabel(protocol, 'API key', 'local-key');
+  await waitForText(protocol, 'Test connection with these exact settings before saving. Testing does not save anything.');
   await clickButton(protocol, 'Test connection');
   await waitForText(protocol, 'Connection test succeeded.');
   await clickButton(protocol, 'Save');
@@ -119,9 +121,12 @@ async function runSmoke(protocol) {
   await fillByAriaLabel(protocol, 'Message the execution agent', 'Break this down into one visible next action.');
   await clickElement(protocol, `document.querySelector('[aria-label="Send message"]')`);
   await waitForText(protocol, 'Preview drafted. Review it, revise it, or accept it before anything is saved.');
-  await waitForText(protocol, 'Accepting will add 1 draft node');
+  await waitForText(protocol, 'I drafted a structure. Nothing is saved yet.');
+  await waitForText(protocol, 'This will save 1 node and 1 link.');
   await waitForText(protocol, '1 nodes');
   await waitForText(protocol, 'No update or delete operations are included in this preview.');
+  await clickButton(protocol, 'Revise');
+  await waitForAriaValue(protocol, 'Message the execution agent', 'Make this smaller.');
 
   await fillByAriaLabel(protocol, 'Message the execution agent', 'Make the next action smaller.');
   await clickElement(protocol, `document.querySelector('[aria-label="Send message"]')`);
@@ -157,12 +162,20 @@ async function runSmoke(protocol) {
   await clickButton(protocol, 'Back to canvas');
   await clickButton(protocol, 'Start');
   await waitForText(protocol, 'Return context');
-  await waitForText(protocol, 'Make smaller');
+  await waitForText(protocol, 'Materials');
+  await waitForText(protocol, 'Current distraction');
+  await waitForText(protocol, 'Five-minute fit');
+  await waitForText(protocol, 'Reopen target');
+  await waitForText(protocol, 'Make this smaller.');
+  await waitForText(protocol, 'Start with five minutes.');
+  await waitForText(protocol, 'Leave a return cue for later.');
   await fillByPlaceholder(protocol, 'Did you start, where did it get stuck, or what should stay visible next?', 'Five-minute starts helped me return.');
   await clickButton(protocol, 'Save check-in');
   await waitForText(protocol, 'Check-in saved: Five-minute starts helped me return.');
   await clickButton(protocol, 'Back to canvas');
   await clickButton(protocol, 'Memory');
+  await waitForText(protocol, 'Confirmed preferences');
+  await waitForText(protocol, 'Only confirmed memory is listed here.');
   await waitForText(protocol, 'Accept all reviewed');
   await waitForText(protocol, 'Reject all');
   await clickButton(protocol, 'Accept all reviewed');
@@ -394,6 +407,13 @@ function onceEvent(protocol, method) {
 
 async function waitForText(protocol, text) {
   await waitForCondition(protocol, `document.body?.innerText.includes(${JSON.stringify(text)})`);
+}
+
+async function waitForAriaValue(protocol, labelText, value) {
+  await waitForCondition(
+    protocol,
+    `document.querySelector('[aria-label=${JSON.stringify(labelText)}]')?.value === ${JSON.stringify(value)}`,
+  );
 }
 
 async function waitForCondition(protocol, expression) {

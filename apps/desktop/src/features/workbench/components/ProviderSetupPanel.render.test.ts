@@ -14,15 +14,17 @@ test('provider setup panel renders preset and API mode controls with base URL gu
   const html = renderToStaticMarkup(
     React.createElement(ProviderSetupPanel, {
       apiKey: '',
-      apiMode: 'openai_chat_completions',
-      apiModeOptions,
-      baseUrl: 'http://localhost:11434/v1',
-      isSaving: false,
-      isTesting: false,
+        apiMode: 'openai_chat_completions',
+        apiModeOptions,
+        baseUrl: 'http://localhost:11434/v1',
+        canSave: false,
+        isSaving: false,
+        isTesting: false,
       model: 'llama3.2',
-      providerId: 'ollama_local',
-      providerPresets: llmProviderPresets,
-      testResult: null,
+        providerId: 'ollama_local',
+        providerPresets: llmProviderPresets,
+        saveBlockedReason: 'Test connection with these exact settings before saving.',
+        testResult: null,
       timeoutSeconds: 30,
       onApiKeyChange: () => {},
       onApiModeChange: () => {},
@@ -40,4 +42,11 @@ test('provider setup panel renders preset and API mode controls with base URL gu
   assert.match(html, /API mode/);
   assert.match(html, /OpenAI Responses API compatible/);
   assert.match(html, /Base URL should stop at the API version/);
+  assert.match(html, /Testing checks this draft only/);
+  assert.match(html, /Test connection with these exact settings/);
+  assert.match(html, /class="[^"]*ml-surface[^"]*provider-setup-surface/);
+  assert.match(html, /class="[^"]*ml-field/);
+  assert.match(html, /class="[^"]*ml-notice[^"]*ml-notice-warning/);
+  assert.match(html, /class="[^"]*ml-button[^"]*ml-button-primary/);
+  assert.match(html, /<button class="[^"]*ml-button[^"]*" disabled="" type="submit">Save<\/button>/);
 });

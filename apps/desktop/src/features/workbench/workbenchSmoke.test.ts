@@ -109,7 +109,7 @@ test('mvp smoke flow covers setup, capture, preview, map editing, support, start
   const startMode = buildStartModeView(state.workbench);
   assert.equal(state.workbench.viewMode, 'start');
   assert.equal(startMode.nextAction.length > 0, true);
-  assert.equal(startMode.checks.some((check) => check.includes('Five-minute')), true);
+  assert.equal(startMode.checks.some((check) => check.label === 'Five-minute fit'), true);
 
   state = await startAttentionSession(client, state, '2026-05-17T00:00:00Z');
   assert.equal(state.attentionSession?.state, 'active');

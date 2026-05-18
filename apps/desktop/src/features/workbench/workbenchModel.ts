@@ -129,10 +129,16 @@ export type StartModeDetail = {
   value: string;
 };
 
+export type StartModeCheck = {
+  label: string;
+  value: string;
+  checked: boolean;
+};
+
 export type StartModeView = {
   nextAction: string;
   minimumDone: string;
-  checks: string[];
+  checks: StartModeCheck[];
   details: StartModeDetail[];
 };
 
@@ -362,7 +368,7 @@ export function buildStartModeView(model: WorkbenchModel): StartModeView {
   return {
     nextAction: model.startPlan.nextAction,
     minimumDone: model.startPlan.minimumDone,
-    checks: model.startPlan.checks,
+    checks: buildStartModeChecks(model, returnCue),
     details: [
       parentTask ? { label: 'Parent task', value: parentTask.title } : null,
       estimateMinutes ? { label: 'Estimate', value: `${estimateMinutes} min` } : null,
@@ -462,11 +468,51 @@ export function previewWriteSummary(preview: AgentPreviewModel | null): string {
   const memoryCount = preview.proposedMemory?.length ?? 0;
   const checkInCount = preview.proposedCheckIns?.length ?? 0;
   const strategyExperimentCount = preview.proposedStrategyExperiments?.length ?? 0;
-  return `Accepting will add ${nodeCount} draft node${nodeCount === 1 ? '' : 's'}, ${edgeCount} draft edge${
-    edgeCount === 1 ? '' : 's'
-  }, ${memoryCount} memory update${memoryCount === 1 ? '' : 's'}, ${checkInCount} check-in${
-    checkInCount === 1 ? '' : 's'
-  }, and ${strategyExperimentCount} strategy experiment${strategyExperimentCount === 1 ? '' : 's'}.`;
+  const extraWrites = [
+    memoryCount > 0 ? `${memoryCount} memory ${memoryCount === 1 ? 'proposal' : 'proposals'}` : null,
+    checkInCount > 0 ? `${checkInCount} check-${checkInCount === 1 ? 'in' : 'ins'}` : null,
+    strategyExperimentCount > 0
+      ? `${strategyExperimentCount} strategy ${strategyExperimentCount === 1 ? 'experiment' : 'experiments'}`
+      : null,
+  ].filter((item): item is string => item !== null);
+  const graphSummary = `This will save ${nodeCount} ${nodeCount === 1 ? 'node' : 'nodes'} and ${edgeCount} ${
+    edgeCount === 1 ? 'link' : 'links'
+  }.`;
+
+  return extraWrites.length > 0 ? `${graphSummary} It also includes ${extraWrites.join(', ')} for review.` : graphSummary;
+}
+
+function buildStartModeChecks(model: WorkbenchModel, returnCue?: string): StartModeCheck[] {
+  const nextActionNode =
+    model.nodes.find((node) => node.title === model.startPlan.nextAction) ??
+    model.nodes.find((node) => node.kind === 'next_action');
+  const resource = model.nodes.find((node) => node.kind === 'resource' || node.kind === 'note');
+  const blocker = model.nodes.find((node) => node.kind === 'blocker');
+  const estimateMinutes = nextActionNode?.estimateMinutes ?? 5;
+  const resolvedReturnCue = returnCue ?? `Return to: ${model.startPlan.nextAction}`;
+
+  return [
+    {
+      label: 'Materials',
+      value: resource?.title ?? 'One useful material is visible.',
+      checked: Boolean(resource),
+    },
+    {
+      label: 'Current distraction',
+      value: blocker?.title ?? 'No blocker named yet.',
+      checked: Boolean(blocker),
+    },
+    {
+      label: 'Five-minute fit',
+      value: estimateMinutes <= 5 ? 'Fits a five-minute start.' : `${estimateMinutes} min estimate; make it smaller if needed.`,
+      checked: estimateMinutes <= 5,
+    },
+    {
+      label: 'Reopen target',
+      value: resolvedReturnCue.replace(/^Return to:\s*/i, ''),
+      checked: Boolean(resolvedReturnCue),
+    },
+  ];
 }
 
 export function buildPreviewDiff(preview: AgentPreviewModel | null): PreviewDiff {

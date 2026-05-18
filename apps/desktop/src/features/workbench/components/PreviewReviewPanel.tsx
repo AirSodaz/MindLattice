@@ -1,7 +1,8 @@
-import { Check, CircleDot, X } from 'lucide-react';
+import { Check, CircleDot, PencilLine, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import '../../../shared/i18n/i18n';
+import { Badge, Button, Surface } from '../../../shared/ui';
 import { previewWriteSummary, type AgentPreviewModel, type PreviewDiff } from '../workbenchModel';
 
 export type PreviewReviewPanelProps = {
@@ -9,6 +10,7 @@ export type PreviewReviewPanelProps = {
   previewDiff?: PreviewDiff | null;
   isBusy?: boolean;
   onAccept: () => void;
+  onRevise: () => void;
   onReject: () => void;
 };
 
@@ -17,26 +19,29 @@ export function PreviewReviewPanel({
   previewDiff,
   isBusy = false,
   onAccept,
+  onRevise,
   onReject,
 }: PreviewReviewPanelProps) {
   const { t } = useTranslation('common');
 
   return (
-    <section className="preview-surface" aria-label={t('preview.aria')}>
-      <div className="panel-heading compact">
-        <div>
-          <span className="eyebrow">{t('preview.eyebrow')}</span>
-          <h2>{t('preview.title')}</h2>
-        </div>
-        <CircleDot aria-hidden="true" size={18} />
-      </div>
+    <Surface
+      className="preview-surface"
+      tone="preview"
+      eyebrow={t('preview.eyebrow')}
+      title={t('preview.title')}
+      actions={<CircleDot aria-hidden="true" size={18} />}
+      aria-label={t('preview.aria')}
+    >
+      <p className="preview-status-copy">{t('preview.nothingSaved')}</p>
       <p>{previewWriteSummary(activePreview)}</p>
       {activePreview ? (
         <ul className="preview-list" aria-label={t('preview.items')}>
           {activePreview.proposedNodes.map((node) => (
-            <li key={node.id}>
+            <li className="ml-list-item ml-list-item-draft" key={node.id}>
+              <Badge tone="draft">{t('preview.draftBadge')}</Badge>
               <span>{t('preview.draft', { kind: node.kind.replaceAll('_', ' ') })}</span>
-              {node.title}
+              <strong>{node.title}</strong>
             </li>
           ))}
         </ul>
@@ -62,15 +67,34 @@ export function PreviewReviewPanel({
         </div>
       ) : null}
       <div className="action-row">
-        <button disabled={!activePreview || isBusy} onClick={onAccept} type="button">
-          <Check aria-hidden="true" size={16} />
+        <Button
+          disabled={!activePreview || isBusy}
+          icon={<Check aria-hidden="true" size={16} />}
+          onClick={onAccept}
+          type="button"
+          variant="primary"
+        >
           {t('preview.accept')}
-        </button>
-        <button className="secondary" disabled={!activePreview || isBusy} onClick={onReject} type="button">
-          <X aria-hidden="true" size={16} />
+        </Button>
+        <Button
+          disabled={!activePreview || isBusy}
+          icon={<PencilLine aria-hidden="true" size={16} />}
+          onClick={onRevise}
+          type="button"
+          variant="secondary"
+        >
+          {t('preview.revise')}
+        </Button>
+        <Button
+          disabled={!activePreview || isBusy}
+          icon={<X aria-hidden="true" size={16} />}
+          onClick={onReject}
+          type="button"
+          variant="secondary"
+        >
           {t('preview.reject')}
-        </button>
+        </Button>
       </div>
-    </section>
+    </Surface>
   );
 }

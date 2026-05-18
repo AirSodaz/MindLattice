@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react';
 
+import { Button, Surface } from '../../../shared/ui';
 import type { WorkbenchEdge, WorkbenchNode, WorkbenchNodeKind } from '../workbenchModel';
 
 export type AdvancedMapPanelProps = {
@@ -75,9 +76,13 @@ export function AdvancedMapPanel({
   };
 
   return (
-    <section className="inspector-surface" aria-label="Advanced map editing">
-      <span className="eyebrow">Advanced map</span>
-      <h2>{selectedNode?.title ?? 'No selection'}</h2>
+    <Surface
+      className="inspector-surface"
+      tone="default"
+      eyebrow="Advanced map"
+      title={selectedNode?.title ?? 'No selection'}
+      aria-label="Advanced map editing"
+    >
       <form className="node-editor" onSubmit={handleSaveSubmit}>
         <label>
           Title
@@ -95,9 +100,9 @@ export function AdvancedMapPanel({
             value={nodeBodyDraft}
           />
         </label>
-        <button disabled={!selectedNode || isNodeSaving || !nodeTitleDraft.trim()} type="submit">
+        <Button disabled={!selectedNode || isNodeSaving || !nodeTitleDraft.trim()} type="submit" variant="primary">
           Save node
-        </button>
+        </Button>
       </form>
       <form className="node-editor compact" onSubmit={handleAddSubmit}>
         <label>
@@ -123,9 +128,9 @@ export function AdvancedMapPanel({
             value={newNodeTitle}
           />
         </label>
-        <button disabled={!selectedNode || isNodeSaving || !newNodeTitle.trim()} type="submit">
+        <Button disabled={!selectedNode || isNodeSaving || !newNodeTitle.trim()} type="submit" variant="secondary">
           Add node
-        </button>
+        </Button>
       </form>
       <form className="node-editor compact" onSubmit={handleConnectSubmit}>
         <label>
@@ -166,9 +171,13 @@ export function AdvancedMapPanel({
             ))}
           </select>
         </label>
-        <button disabled={isEdgeSaving || nodes.length < 2 || !edgeSourceId || !edgeTargetId || edgeSourceId === edgeTargetId} type="submit">
+        <Button
+          disabled={isEdgeSaving || nodes.length < 2 || !edgeSourceId || !edgeTargetId || edgeSourceId === edgeTargetId}
+          type="submit"
+          variant="secondary"
+        >
           Connect nodes
-        </button>
+        </Button>
       </form>
       {edges.length > 0 ? (
         <div className="edge-list" aria-label="Current connections">
@@ -200,6 +209,6 @@ export function AdvancedMapPanel({
           <dd>{selectedNode?.estimateMinutes ? `${selectedNode.estimateMinutes} min` : 'Unset'}</dd>
         </div>
       </dl>
-    </section>
+    </Surface>
   );
 }

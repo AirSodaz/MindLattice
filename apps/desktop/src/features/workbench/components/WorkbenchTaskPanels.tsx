@@ -9,6 +9,7 @@ import type {
   CommandVaultFile,
   VaultExportProfile,
 } from '../../../shared/api/commandClient';
+import { Badge, Button, Field, Notice, Surface } from '../../../shared/ui';
 import type { SupportTemplateRecommendation, WorkbenchTaskPanel, WorkbenchNode } from '../workbenchModel';
 
 export type WorkbenchTaskPanelsProps = {
@@ -33,6 +34,7 @@ export type WorkbenchTaskPanelsProps = {
   isSupportAdopting: boolean;
   isSupportSaving: boolean;
   isVaultBusy: boolean;
+  memoryReviewPanel?: ReactNode;
   memoryDrafts: Record<string, string>;
   pendingMemoryDrafts: Record<string, string>;
   pendingMemoryProposals: CommandMemory[];
@@ -96,10 +98,9 @@ export function WorkbenchTaskPanels(props: WorkbenchTaskPanelsProps) {
   }
   if (props.activePanel === 'diagnostics') {
     return (
-      <section className="settings-surface">
-        <span className="eyebrow">Diagnostics</span>
-        <h2>Nothing to inspect</h2>
-      </section>
+      <Surface className="settings-surface" tone="settings" eyebrow="Diagnostics" title="Nothing to inspect">
+        <p className="agent-setup-hint">No diagnostic surface is active.</p>
+      </Surface>
     );
   }
   return null;
@@ -122,14 +123,10 @@ function SupportPanel(props: WorkbenchTaskPanelsProps) {
   };
 
   return (
-    <section className="support-surface">
-      <div>
-        <span className="eyebrow">Support templates</span>
-        <h2>Try one support</h2>
-      </div>
+    <Surface className="support-surface" tone="default" eyebrow="Support templates" title="Try one support">
       <div className="support-list">
         {props.supportTemplates.slice(0, 3).map((template) => (
-          <article className="support-template" key={template.id}>
+          <article className="support-template ml-list-item" key={template.id}>
             <div>
               <span>{template.category.replaceAll('_', ' ')}</span>
               <h3>{template.title}</h3>
@@ -141,13 +138,14 @@ function SupportPanel(props: WorkbenchTaskPanelsProps) {
                 {props.supportRecommendations.find((recommendation) => recommendation.template.id === template.id)?.reason}
               </p>
             ) : null}
-            <button
+            <Button
               disabled={props.isSupportAdopting || !props.workspaceReady}
               onClick={() => props.onAdoptSupportTemplate(template.id)}
               type="button"
+              variant="secondary"
             >
               Adopt
-            </button>
+            </Button>
           </article>
         ))}
       </div>
@@ -190,17 +188,17 @@ function SupportPanel(props: WorkbenchTaskPanelsProps) {
                   />
                 </label>
                 <div className="action-row">
-                  <button disabled={props.isSupportSaving || !draft.title.trim()} type="submit">
+                  <Button disabled={props.isSupportSaving || !draft.title.trim()} type="submit" variant="primary">
                     Save
-                  </button>
-                  <button
-                    className="secondary"
+                  </Button>
+                  <Button
                     disabled={props.isSupportSaving}
                     onClick={() => props.onDiscardSupport(support.id)}
                     type="button"
+                    variant="secondary"
                   >
                     Discard
-                  </button>
+                  </Button>
                 </div>
               </form>
             );
@@ -231,17 +229,21 @@ function SupportPanel(props: WorkbenchTaskPanelsProps) {
           />
         </label>
         <div className="action-row">
-          <button disabled={props.isCustomSupportCreating || !props.workspaceReady || !props.customSupportTitle.trim()} type="submit">
+          <Button
+            disabled={props.isCustomSupportCreating || !props.workspaceReady || !props.customSupportTitle.trim()}
+            type="submit"
+            variant="primary"
+          >
             Create support
-          </button>
-          <button
-            className="secondary"
+          </Button>
+          <Button
             disabled={props.isCustomSupportTemplateSaving || !props.workspaceReady || !props.customSupportTitle.trim()}
             onClick={props.onSaveCustomSupportTemplate}
             type="button"
+            variant="secondary"
           >
             Save template
-          </button>
+          </Button>
         </div>
       </form>
       <form className="strategy-experiment-form" onSubmit={handleExperimentSubmit}>
@@ -320,9 +322,9 @@ function SupportPanel(props: WorkbenchTaskPanelsProps) {
             <option value="remove">Remove</option>
           </select>
         </label>
-        <button disabled={props.isExperimentSaving || !props.experimentSupportId} type="submit">
+        <Button disabled={props.isExperimentSaving || !props.experimentSupportId} type="submit" variant="secondary">
           Review experiment
-        </button>
+        </Button>
       </form>
       {props.pendingStrategyExperiments.length > 0 ? (
         <div className="strategy-proposal-list" aria-label="Pending strategy experiment proposals">
@@ -338,84 +340,40 @@ function SupportPanel(props: WorkbenchTaskPanelsProps) {
                 </div>
                 {experiment.obstacleNote ? <p>{experiment.obstacleNote}</p> : null}
                 <div className="action-row">
-                  <button disabled={props.isExperimentSaving} onClick={() => props.onAcceptStrategyExperiment(experiment.id)} type="button">
+                  <Button
+                    disabled={props.isExperimentSaving}
+                    onClick={() => props.onAcceptStrategyExperiment(experiment.id)}
+                    type="button"
+                    variant="primary"
+                  >
                     Accept experiment
-                  </button>
-                  <button
-                    className="secondary"
+                  </Button>
+                  <Button
                     disabled={props.isExperimentSaving}
                     onClick={() => props.onRejectStrategyExperiment(experiment.id)}
                     type="button"
+                    variant="secondary"
                   >
                     Reject
-                  </button>
+                  </Button>
                 </div>
               </article>
             );
           })}
         </div>
       ) : null}
-    </section>
+    </Surface>
   );
 }
 
 function MemoryPanel(props: WorkbenchTaskPanelsProps) {
   return (
-    <section className="memory-surface">
-      <div>
-        <span className="eyebrow">Preference memory</span>
-        <h2>Review saved preferences</h2>
-      </div>
+    <Surface className="memory-surface" tone="memory" eyebrow="Preference memory" title="Confirmed preferences">
+      <p>Only confirmed memory is listed here. Agent proposals require explicit review before saving.</p>
       {props.pendingMemoryProposals.length > 0 ? (
-        <div className="memory-list" aria-label="Pending preference memory proposals">
-          <div className="memory-batch-actions action-row">
-            <button disabled={props.isMemorySaving} onClick={() => props.onAcceptAllMemoryProposals(props.pendingMemoryDrafts)} type="button">
-              Accept all reviewed
-            </button>
-            <button className="secondary" disabled={props.isMemorySaving} onClick={props.onRejectAllMemoryProposals} type="button">
-              Reject all
-            </button>
-          </div>
-          {props.pendingMemoryProposals.map((memory) => {
-            const draft = props.pendingMemoryDrafts[memory.id] ?? memory.proposedMemoryText;
-            return (
-              <form
-                className="memory-item pending"
-                key={memory.id}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!draft.trim()) {
-                    return;
-                  }
-                  props.onAcceptMemoryProposal(memory.id, draft);
-                }}
-              >
-                <label>
-                  Proposed preference
-                  <textarea
-                    disabled={props.isMemorySaving}
-                    onChange={(event) => props.onPendingMemoryDraftChange(memory.id, event.target.value)}
-                    value={draft}
-                  />
-                </label>
-                {memory.evidenceReference ? <span>Evidence: {memory.evidenceReference}</span> : null}
-                <div className="action-row">
-                  <button disabled={props.isMemorySaving || !draft.trim()} type="submit">
-                    Accept memory
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={props.isMemorySaving}
-                    onClick={() => props.onRejectMemoryProposal(memory.id)}
-                    type="button"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </form>
-            );
-          })}
-        </div>
+        <Notice className="memory-review-callout" tone="draft" title={<Badge tone="draft">Draft</Badge>}>
+          {props.pendingMemoryProposals.length} proposed preference memory item is waiting for review.
+        </Notice>
       ) : null}
       {props.preferenceMemory.length === 0 ? (
         <p>No saved preference memory yet.</p>
@@ -445,47 +403,44 @@ function MemoryPanel(props: WorkbenchTaskPanelsProps) {
                 </label>
                 {memory.evidenceReference ? <span>Evidence: {memory.evidenceReference}</span> : null}
                 <div className="action-row">
-                  <button disabled={props.isMemorySaving || !draft.trim()} type="submit">
+                  <Button disabled={props.isMemorySaving || !draft.trim()} type="submit" variant="primary">
                     Save
-                  </button>
-                  <button
-                    className="secondary"
+                  </Button>
+                  <Button
                     disabled={props.isMemorySaving}
                     onClick={() => props.onDeleteMemory(memory.id)}
                     type="button"
+                    variant="secondary"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </form>
             );
           })}
         </div>
       )}
-    </section>
+      {props.memoryReviewPanel}
+    </Surface>
   );
 }
 
 function VaultPanel(props: WorkbenchTaskPanelsProps) {
   return (
-    <section className="vault-surface">
-      <div>
-        <span className="eyebrow">Vault import/export</span>
-        <h2>Manual Markdown snapshot</h2>
-      </div>
+    <Surface className="vault-surface" tone="default" eyebrow="Vault import/export" title="Manual Markdown snapshot">
       <div className="action-row">
-        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportPreview('obsidian_readable')} type="button">
+        <Button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportPreview('obsidian_readable')} type="button" variant="secondary">
           Preview Obsidian export
-        </button>
-        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportToFolder('obsidian_readable')} type="button">
+        </Button>
+        <Button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportToFolder('obsidian_readable')} type="button" variant="secondary">
           Export Obsidian folder
-        </button>
-        <button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportToFolder('plain_markdown')} type="button">
+        </Button>
+        <Button disabled={props.isVaultBusy || !props.workspaceReady} onClick={() => props.onVaultExportToFolder('plain_markdown')} type="button" variant="secondary">
           Export plain folder
-        </button>
-        <button className="secondary" disabled={props.isVaultBusy || !props.workspaceReady} onClick={props.onVaultPickImportFolder} type="button">
+        </Button>
+        <Button disabled={props.isVaultBusy || !props.workspaceReady} onClick={props.onVaultPickImportFolder} type="button" variant="secondary">
           Import folder
-        </button>
+        </Button>
       </div>
       {props.vaultExportSummary ? <p>{props.vaultExportSummary}</p> : null}
       <form
@@ -503,26 +458,28 @@ function VaultPanel(props: WorkbenchTaskPanelsProps) {
           ]);
         }}
       >
-        <label>
-          Markdown filename
+        <Field label="Markdown filename">
           <input
             disabled={props.isVaultBusy}
             onChange={(event) => props.onVaultImportFilenameChange(event.target.value)}
             value={props.vaultImportFilename}
           />
-        </label>
-        <label>
-          Markdown content
+        </Field>
+        <Field label="Markdown content">
           <textarea
             disabled={props.isVaultBusy}
             onChange={(event) => props.onVaultImportContentChange(event.target.value)}
             placeholder="# Imported note"
             value={props.vaultImportContent}
           />
-        </label>
-        <button disabled={props.isVaultBusy || !props.vaultImportFilename.trim() || !props.vaultImportContent.trim()} type="submit">
+        </Field>
+        <Button
+          disabled={props.isVaultBusy || !props.vaultImportFilename.trim() || !props.vaultImportContent.trim()}
+          type="submit"
+          variant="secondary"
+        >
           Preview import
-        </button>
+        </Button>
       </form>
       {props.pendingVaultImport ? (
         <article className="vault-import-preview">
@@ -532,15 +489,15 @@ function VaultPanel(props: WorkbenchTaskPanelsProps) {
           </div>
           <p>{props.pendingVaultImport.totalBytes} characters queued for manual import.</p>
           <div className="action-row">
-            <button disabled={props.isVaultBusy} onClick={props.onAcceptVaultImport} type="button">
+            <Button disabled={props.isVaultBusy} onClick={props.onAcceptVaultImport} type="button" variant="primary">
               Accept import
-            </button>
-            <button className="secondary" disabled={props.isVaultBusy} onClick={props.onRejectVaultImport} type="button">
+            </Button>
+            <Button disabled={props.isVaultBusy} onClick={props.onRejectVaultImport} type="button" variant="secondary">
               Reject
-            </button>
+            </Button>
           </div>
         </article>
       ) : null}
-    </section>
+    </Surface>
   );
 }

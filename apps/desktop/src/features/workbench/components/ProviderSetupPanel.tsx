@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { CommandLlmTestResult } from '../../../shared/api/commandClient';
 import '../../../shared/i18n/i18n';
+import { Button, Field, Notice, Surface } from '../../../shared/ui';
 import type {
   LlmApiMode,
   LlmApiModeOption,
@@ -15,11 +16,13 @@ export type ProviderSetupPanelProps = {
   apiMode: LlmApiMode;
   apiModeOptions: LlmApiModeOption[];
   baseUrl: string;
+  canSave: boolean;
   isSaving: boolean;
   isTesting: boolean;
   model: string;
   providerId: LlmProviderId;
   providerPresets: LlmProviderPreset[];
+  saveBlockedReason?: string | null;
   testResult: CommandLlmTestResult | null;
   timeoutSeconds: number;
   onApiKeyChange: (value: string) => void;
@@ -37,11 +40,13 @@ export function ProviderSetupPanel({
   apiMode,
   apiModeOptions,
   baseUrl,
+  canSave,
   isSaving,
   isTesting,
   model,
   providerId,
   providerPresets,
+  saveBlockedReason,
   onApiKeyChange,
   onApiModeChange,
   onBaseUrlChange,
@@ -59,22 +64,36 @@ export function ProviderSetupPanel({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isBusy || isMissingRequiredValue) {
+    if (isBusy || isMissingRequiredValue || !canSave) {
       return;
     }
     onSave();
   };
 
   return (
-    <section className="settings-surface provider-setup-surface" aria-label={t('provider.aria')}>
-      <div>
-        <span className="eyebrow">{t('provider.eyebrow')}</span>
-        <h2>{t('provider.title')}</h2>
-      </div>
+    <Surface
+      className="provider-setup-surface"
+      tone="setup"
+      eyebrow={t('provider.eyebrow')}
+      title={t('provider.title')}
+      aria-label={t('provider.aria')}
+    >
       <p>{t('provider.required')}</p>
       <form className="settings-form" onSubmit={handleSubmit}>
-        <label>
-          {t('provider.preset')}
+        <div className="provider-preset-grid" aria-label={t('provider.preset')}>
+          {providerPresets.map((preset) => (
+            <Button
+              className={providerId === preset.id ? 'is-active' : ''}
+              disabled={isBusy}
+              key={preset.id}
+              onClick={() => onProviderPresetChange(preset.id)}
+              type="button"
+            >
+              <span>{preset.label}</span>
+            </Button>
+          ))}
+        </div>
+        <Field label={t('provider.preset')}>
           <select
             disabled={isBusy}
             onChange={(event) => onProviderPresetChange(event.target.value as LlmProviderId)}
@@ -86,9 +105,8 @@ export function ProviderSetupPanel({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          {t('provider.apiMode')}
+        </Field>
+        <Field label={t('provider.apiMode')}>
           <select
             disabled={isBusy}
             onChange={(event) => onApiModeChange(event.target.value as LlmApiMode)}
@@ -100,27 +118,22 @@ export function ProviderSetupPanel({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          {t('provider.baseUrl')}
+        </Field>
+        <Field label={t('provider.baseUrl')} help={t('provider.baseUrlHelp')}>
           <input disabled={isBusy} onChange={(event) => onBaseUrlChange(event.target.value)} value={baseUrl} />
-          <span className="field-help">{t('provider.baseUrlHelp')}</span>
-        </label>
-        <label>
-          {t('provider.apiKey')}
+        </Field>
+        <Field label={t('provider.apiKey')}>
           <input
             disabled={isBusy}
             onChange={(event) => onApiKeyChange(event.target.value)}
             type="password"
             value={apiKey}
           />
-        </label>
-        <label>
-          {t('provider.model')}
+        </Field>
+        <Field label={t('provider.model')}>
           <input disabled={isBusy} onChange={(event) => onModelChange(event.target.value)} value={model} />
-        </label>
-        <label>
-          {t('provider.timeout')}
+        </Field>
+        <Field label={t('provider.timeout')}>
           <input
             disabled={isBusy}
             min={5}
@@ -128,18 +141,31 @@ export function ProviderSetupPanel({
             type="number"
             value={timeoutSeconds}
           />
-        </label>
-        {testResult ? <p className="provider-test-status provider-test-status-ok">{testResult.message}</p> : null}
+        </Field>
+        {testResult ? (
+          <Notice className="provider-test-status provider-test-status-ok" tone="ok">
+            {testResult.message}
+          </Notice>
+        ) : (
+          <Notice className="provider-test-status provider-test-status-idle" tone="warning">
+            {t('provider.testDoesNotSave')}
+          </Notice>
+        )}
+        {!canSave && saveBlockedReason ? (
+          <Notice className="provider-save-hint" tone="warning">
+            {saveBlockedReason}
+          </Notice>
+        ) : null}
         <div className="action-row">
-          <button disabled={isBusy || isMissingRequiredValue} onClick={onTest} type="button">
+          <Button disabled={isBusy || isMissingRequiredValue} onClick={onTest} type="button" variant="secondary">
             {t('provider.testConnection')}
-          </button>
-          <button disabled={isBusy || isMissingRequiredValue} type="submit">
+          </Button>
+          <Button disabled={isBusy || isMissingRequiredValue || !canSave} type="submit" variant="primary">
             {t('provider.save')}
-          </button>
+          </Button>
         </div>
       </form>
       <p className="agent-setup-hint">{t('provider.boundary')}</p>
-    </section>
+    </Surface>
   );
 }

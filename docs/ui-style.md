@@ -4,12 +4,12 @@
 | --- | --- |
 | Status | Draft |
 | Owner | Product and design engineering |
-| Last updated | 2026-05-17 |
+| Last updated | 2026-05-18 |
 | Scope | Cross-platform UI style, app shell behavior, theme behavior, and design token rules for the desktop UI |
 
 ## Purpose
 
-MindLattice uses the `Quiet Workshop` style: a calm, restrained desktop workbench for a conversational execution agent, external memory, map editing, agent previews, and Start Mode.
+MindLattice uses the `Quiet Workshop` style: a calm, restrained desktop workbench for a conversational execution agent, external memory, map editing, agent previews, and Start Mode. The current visual target is the Open Design `Green Paper` pass: paper-like panels, deep green or blue-green accents, amber draft accents, quiet editorial headings, and operational density.
 
 The UI MUST feel local-first, practical, low-stimulus, and readable for long work sessions. It MUST NOT feel clinical, gamified, productivity-scored, meditation-like, or decorative for its own sake.
 
@@ -25,6 +25,7 @@ This document also acts as the cross-platform UI contract. Windows, macOS, and L
 - Interactive states MUST be visible in both light and dark themes: hover, active, selected, disabled, error, and keyboard focus.
 - User-facing copy MUST stay practical and non-medical. It MAY talk about starting, blockers, supports, return cues, and context. It MUST NOT make clinical claims.
 - LLM setup, provider errors, tool progress, and safety blocks MUST be clear without using panic, blame, or urgency styling.
+- Open Design fidelity MUST preserve the product language rather than the prototype artifact structure. The desktop app remains a real workbench, not a marketing page, feature tour, or permanent dashboard.
 
 ## Theme Model
 
@@ -136,6 +137,7 @@ Default shape rules:
 Typography rules:
 
 - Body text MUST prioritize readability over brand personality.
+- Heading and brand display type SHOULD use a quiet editorial serif stack such as `Iowan Old Style`, `Charter`, or `Georgia`; body and controls SHOULD use a system sans stack.
 - Panel headings SHOULD be short and quiet.
 - Start Mode MAY use larger type to emphasize one action, but it MUST keep enough surrounding whitespace to avoid pressure.
 - Interface copy MUST fit its container at supported desktop and compact widths.
@@ -153,6 +155,8 @@ Primary regions:
 - Settings: LLM provider setup, theme, and local preferences as a secondary task panel.
 
 The first viewport MUST make the agent state and the most relevant current-turn context available together. The default workbench SHOULD use a stable two-pane layout: agent thread on the left, turn context pane on the right. It MUST NOT mount preview, advanced map editing, support, memory, Vault, Start, and Settings surfaces as simultaneous persistent columns.
+
+The primary desktop validation viewport is `1440x900`. The compact desktop validation viewport is `1200px` wide. At both sizes, the app MUST preserve the same two-pane mental model: left agent, right turn context, one main right-pane surface at a time. Compact desktop may tighten spacing and control labels, but it MUST NOT collapse into a mobile dashboard.
 
 Low-frequency tools SHOULD open as secondary task panels inside the right turn context pane. The right pane MUST show only one primary surface at a time and SHOULD become a full-width panel on compact screens. Leaving a task panel MUST return to the current turn surface.
 
@@ -235,6 +239,7 @@ Canvas requirements:
 - Agent focus target SHOULD be visible when the agent is discussing or revising a specific node, edge, or region.
 - Edges SHOULD be quiet by default and become clearer on hover, selection, or keyboard focus.
 - The canvas MUST NOT use global neon styling, animated starfields, or decorative cosmic effects.
+- The canvas SHOULD read as working memory: center task, subtasks, blockers, notes, resources, next actions, and supports. It MUST NOT use cosmic/starfield metaphors as the visual explanation of the map.
 
 ## LLM Setup and Provider States
 
@@ -248,6 +253,8 @@ Setup requirements:
 - The default visible help MUST state that Base URL should stop at the API version level, not the full endpoint.
 - Connection testing SHOULD show pending, success, failure, and timeout states.
 - Testing MUST NOT save settings and MUST NOT unlock the agent; save remains a separate action after a successful matching test.
+- Save MUST stay disabled until the current form exactly matches a successful test. Changing provider preset, API mode, Base URL, API key, model, or timeout MUST invalidate the visible test state.
+- Provider setup copy MUST include: "Configure LLM to use the execution agent."
 - Provider errors MUST be actionable and concise. They MUST NOT imply user failure.
 - LLM setup copy MUST include the non-medical product boundary when relevant, but it MUST NOT bury the user in policy text.
 - Provider setup screens MUST use the same theme tokens and component density as the rest of the app.
@@ -271,9 +278,11 @@ Confirmed memory is a user-visible UI surface, not a hidden chat feature.
 Memory UI requirements:
 
 - Preference memory MUST be viewable, editable, disabled or enabled, and deletable.
-- Memory proposals from the agent MUST use preview styling and require explicit acceptance.
+- Memory management MUST list confirmed memory only by default.
+- Memory proposals from the agent MUST use preview styling and require explicit acceptance before they appear as confirmed memory.
 - Memory items SHOULD show their source, such as accepted check-in, strategy experiment, or explicit user confirmation.
 - The UI MUST NOT use vague "I will remember this" copy unless the concrete memory item is visible.
+- The UI MUST NOT imply that MindLattice remembers everything. Proposed memory must be visible, editable, and rejectable before persistence.
 - Clinical labels, symptom scores, medication conclusions, or inferred diagnoses MUST NOT appear as memory items.
 
 ## Start Mode
@@ -284,11 +293,29 @@ Start Mode requirements:
 
 - The selected next action MUST be the strongest visual element.
 - Supporting context MUST be limited and visually secondary.
-- The start check MUST be calm, explicit, and easy to complete.
+- The start check MUST be calm, explicit, and easy to complete. The first-release check labels are `Materials`, `Current distraction`, `Five-minute fit`, and `Reopen target`.
 - Agent assistance in Start Mode MUST stay secondary to the selected next action.
 - If the user asks the agent to make the action smaller, the revised plan MUST appear as a preview before persistence.
 - Missed or incomplete check-ins MUST NOT be framed as failure.
 - The UI MUST NOT show streaks, productivity scores, urgency badges, or motivational guilt.
+
+Start Mode copy MUST preserve these phrases where the matching controls appear:
+
+- "Start with five minutes."
+- "Leave a return cue for later."
+- "Make this smaller."
+
+## Mobile Adaptation
+
+Mobile is a future adaptation, not the desktop MVP layout compressed into a phone dashboard.
+
+Mobile rules:
+
+- Mobile SHOULD become a one-surface flow: setup, agent, preview review, context map, Start Mode, memory, or settings.
+- Mobile MUST NOT show the desktop two-pane layout squeezed side by side.
+- Mobile previews MUST keep confirm-before-write controls visible and stable.
+- Mobile memory management MUST still default to confirmed memory only.
+- Mobile Start Mode MUST remain the quietest screen and avoid urgency, scores, streaks, or motivational copy.
 
 ## Cross-Platform Rules
 
@@ -323,4 +350,10 @@ Disallowed platform differences:
 - Shared components use semantic tokens instead of hard-coded visual constants.
 - Key screens can be screenshot-tested on Windows, macOS, and Linux: agent thread, capture, star-map canvas, preview review, inspector, Start Mode, LLM setup, memory management, and settings.
 - Proposed nodes, proposed edges, preview detail panes, accept/reject/revise controls, safety-block states, provider-error states, and preference-memory proposals render consistently across platforms.
+- Provider setup disables Save until a successful matching test; testing itself does not save settings.
+- Empty workspace copy includes "Tell me what feels messy right now." and avoids a feature tour.
+- Preview review copy includes "I drafted a structure. Nothing is saved yet." and a concrete write summary such as "This will save 3 nodes and 2 links."
+- Draft content is distinguished by badge, dashed outline, soft fill, or label treatment, not color alone.
+- Start Mode renders one next action, parent task, minimum-done definition, blocker, support, return cue, and the four start-check rows.
+- Memory management lists confirmed memory separately from agent-proposed memory review.
 - Safety and product-boundary copy follows [Documentation Standards](documentation-standards.md).

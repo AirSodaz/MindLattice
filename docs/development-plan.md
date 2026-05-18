@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Draft |
 | Owner | Engineering |
-| Last updated | 2026-05-17 |
+| Last updated | 2026-05-18 |
 | Scope | MVP implementation sequencing and validation |
 
 ## Goal
@@ -240,7 +240,7 @@ Acceptance criteria:
 
 Status:
 
-- Started. Implemented so far: first-run local workspace creation through `workspace_open_default`, compact LLM provider setup in the right turn context pane, provider presets for OpenAI, Anthropic Claude, Google Gemini, Ollama/local OpenAI-compatible, and Custom, explicit manual API-mode selection, dedicated `settings_test_llm` connection testing before save/unlock, settings readiness groups for required LLM provider setup, local profile, safety boundary, and interface preferences, language preference controls for `system`, `en`, and `zh-CN`, `settings_update_llm` persistence, context-profile setup-state transition to `configured`, adult-context onboarding controls for local support matching, disabled agent composer before provider setup with no local fallback agent behavior, Windows Tauri bundle configuration with the packaged app icon enabled, manual MVP smoke-test checklist under `docs/smoke-test-checklist.md`, and Windows packaged build validation producing release executable, MSI, and NSIS installer artifacts.
+- Started. Implemented so far: first-run local workspace creation through `workspace_open_default`, compact LLM provider setup in the right turn context pane, provider presets for OpenAI, Anthropic Claude, Google Gemini, Ollama/local OpenAI-compatible, and Custom, explicit manual API-mode selection, dedicated `settings_test_llm` connection testing before save/unlock, Save disabled until the current provider form matches a successful test, settings readiness groups for required LLM provider setup, local profile, safety boundary, and interface preferences, language preference controls for `system`, `en`, and `zh-CN`, `settings_update_llm` persistence, context-profile setup-state transition to `configured`, adult-context onboarding controls for local support matching, disabled agent composer before provider setup with no local fallback agent behavior, Open Design Quiet Workshop / Green Paper visual alignment for the two-pane workbench, draft preview badges and non-color-only draft styling, structured Start Mode check rows, confirmed-only memory management with explicit proposed-memory review, Windows Tauri bundle configuration with the packaged app icon enabled, manual MVP smoke-test checklist under `docs/smoke-test-checklist.md`, and Windows packaged build validation producing release executable, MSI, and NSIS installer artifacts.
 - Not yet implemented: no remaining Phase 7 MVP implementation gap is currently listed.
 
 Purpose:
@@ -256,6 +256,7 @@ Deliverables:
 - Low-risk wellness boundary copy in onboarding and LLM setup.
 - Agent setup path for required LLM provider configuration.
 - Visual polish for the canvas and inspector.
+- Open Design alignment for Quiet Workshop / Green Paper across provider setup, empty state, active turn, preview review, star-map canvas, Start Mode, memory, and settings.
 - Error states for storage, LLM provider, agent tools, safety blocks, memory conflicts, and import/export failures.
 - Safety copy review.
 - Windows packaging configuration.
@@ -266,6 +267,9 @@ Acceptance criteria:
 - Fresh install can create a workspace and first task.
 - Fresh install guides the user through required LLM provider setup before promising the agent workflow.
 - After provider setup, fresh install enables natural-language capture, star map, Start Mode, strategy cards, support templates, and confirmed memory.
+- Preview review states that nothing is saved yet, gives a concrete write summary, and exposes stable Accept, Revise, and Reject controls.
+- Start Mode shows one next action, parent task, minimum done, blocker, support, return cue, and start checks for materials, current distraction, five-minute fit, and reopen target.
+- Memory management lists confirmed memory by default; agent-proposed memory requires explicit accept before persistence.
 - Build and tests pass.
 - Windows packaged app opens and preserves local data.
 

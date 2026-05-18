@@ -28,6 +28,7 @@ test('settings panel renders provider, profile, safety, and interface groups', a
       isLlmSaving: false,
       isLlmTesting: false,
       isOnboardingSaving: false,
+      canSaveLlmSettings: false,
       llmApiKey: '',
       llmApiMode: 'openai_chat_completions',
       llmBaseUrl: 'http://localhost:11434/v1',
@@ -60,6 +61,7 @@ test('settings panel renders provider, profile, safety, and interface groups', a
       onSaveOnboardingProfile: () => {},
       onThemePreferenceChange: () => {},
       profile,
+      saveLlmBlockedReason: 'Test connection with these exact settings before saving.',
       settingsSections: buildSettingsSections(profile),
       supportCategoryOptions: [{ value: 'task_structure', label: 'Task structure' }],
       themeOptions: [
@@ -76,9 +78,15 @@ test('settings panel renders provider, profile, safety, and interface groups', a
   assert.match(html, /Provider preset/);
   assert.match(html, /API mode/);
   assert.match(html, /Test connection/);
+  assert.match(html, /Testing checks this draft only/);
+  assert.match(html, /Test connection with these exact settings/);
   assert.match(html, /Support matching defaults/);
   assert.match(html, /Low-risk execution support/);
   assert.match(html, /No diagnosis, treatment, medication guidance, symptom scoring/);
   assert.match(html, /Theme preference/);
   assert.match(html, /Language preference/);
+  assert.match(html, /class="[^"]*ml-surface[^"]*settings-surface/);
+  assert.match(html, /class="[^"]*ml-field/);
+  assert.match(html, /class="[^"]*ml-notice[^"]*ml-notice-warning/);
+  assert.match(html, /class="[^"]*ml-button[^"]*ml-button-primary/);
 });

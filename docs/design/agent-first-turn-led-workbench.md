@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Draft |
 | Owner | Product and engineering |
-| Last updated | 2026-05-17 |
+| Last updated | 2026-05-18 |
 | Scope | Product experience and implementation design for the refined MVP workbench |
 
 ## Purpose
@@ -20,6 +20,8 @@ The product promise is:
 > Tell the agent what feels messy. MindLattice makes the current task visible, proposes the next useful structure, and saves only what the user confirms.
 
 MindLattice is not a task manager with AI, a graph editor with chat, or a note app with decomposition helpers. It is a local-first agent workbench where conversation drives execution scaffolding and the map preserves visible working memory.
+
+The Open Design prototype alignment pass sets the visual target as `Quiet Workshop / Green Paper`: calm paper surfaces, deep green or blue-green accent, amber draft accent, explicit preview state, and no dashboard-first framing. The implementation should follow the product language and interaction contract from that pass without copying prototype-only file structure.
 
 The first release should prove that a user can:
 
@@ -152,6 +154,9 @@ Right turn context pane:
 - Provides `Test connection` and `Save`.
 - Shows pending, success, failure, and timeout states.
 - Keeps technical detail collapsed by default.
+- Keeps `Test connection` and `Save` visually and behaviorally separate.
+- Disables `Save` until the current form has a successful matching test.
+- Shows that testing does not save settings.
 
 Exit condition:
 
@@ -219,6 +224,7 @@ Left agent panel:
 - Shows the concise explanation of the proposal.
 - Keeps the composer available for revision.
 - Indicates that nothing is saved yet.
+- Keeps the composer available for revision and supports the revision prompt "Make this smaller."
 
 Right turn context pane:
 
@@ -226,6 +232,7 @@ Right turn context pane:
 - Displays proposed graph changes, memory, check-ins, strategy experiments, support adoption, or Vault import summary.
 - Uses preview styling that does not rely on color alone.
 - Provides stable `Accept`, `Revise`, and `Reject` controls.
+- Uses a draft badge, dashed boundary, and soft fill or label treatment so draft content is not distinguished by color alone.
 - Describes concrete write effects in short language.
 
 Exit conditions:
@@ -249,7 +256,8 @@ Left agent panel:
 Right turn context pane:
 
 - Shows the selected next action, minimum-done definition, current blocker, one support or adjustment, and return cue.
-- Shows calm start controls.
+- Shows calm start controls with "Start with five minutes." and "Leave a return cue for later."
+- Shows the start check as `Materials`, `Current distraction`, `Five-minute fit`, and `Reopen target`.
 - Avoids scores, streaks, urgency badges, or guilt language.
 
 Follow-up can propose check-ins, strategy experiments, or preference memory, but persistence still requires explicit acceptance.
@@ -320,6 +328,8 @@ Task panels include:
 
 Task panels MUST preserve the left agent panel so the user can return to conversation.
 
+Memory management is a special case: the memory task panel lists confirmed memory by default. Agent-proposed preference memory belongs in an explicit review surface with draft styling and accept/reject controls before it can become confirmed memory.
+
 ## LLM Provider Setup Design
 
 Provider setup is part of the product, not a hidden settings chore.
@@ -357,6 +367,7 @@ Rules:
 - Base URL guidance MUST state that the value should stop at the API version level, not the full endpoint path.
 - Do not unlock the agent composer until settings are saved and marked configured.
 - Do not persist settings from a test connection.
+- Changing any provider field after a successful test invalidates the visible save eligibility until the user tests again.
 - Do not clear entered values after a failed test.
 - Keep error copy short.
 - Put raw provider detail behind an expandable technical detail.
@@ -409,6 +420,9 @@ Use:
 - "Tell me what feels messy right now."
 - "I drafted a structure. Nothing is saved yet."
 - "This will save 3 nodes and 2 links."
+- "Make this smaller."
+- "Start with five minutes."
+- "Leave a return cue for later."
 - "I could not complete that turn. Check the provider settings."
 
 Avoid:
@@ -476,7 +490,7 @@ Long API compatibility guidance belongs in help or docs, not the default panel.
 `PreviewReviewPanel`
 
 - Renders all preview categories through shared review structure.
-- Owns accept, revise, and reject affordances.
+- Owns accept, revise, and reject affordances. Revise focuses the agent composer or equivalent revision input without persisting the draft.
 - Shows short write summaries.
 
 `TurnCanvasPanel`
@@ -490,6 +504,7 @@ Long API compatibility guidance belongs in help or docs, not the default panel.
 - Renders one next action and nearby context.
 - Starts and closes attention sessions.
 - Collects calm follow-up input.
+- Renders structured start-check rows for materials, current distraction, five-minute fit, and reopen target.
 
 `AdvancedMapPanel`
 
@@ -513,6 +528,8 @@ The frontend should model these high-level state groups:
 - `selectedGraphContext`: selected node, selected edge, or current preview focus.
 
 The state model should make it difficult for provider setup, preview review, advanced editing, and unrelated task panels to appear as simultaneous first-class surfaces.
+
+Mobile adaptation remains future work. Mobile should use a one-surface flow for setup, agent, preview review, context map, Start Mode, memory, and settings; it must not compress the desktop two-pane workbench into a phone dashboard.
 
 ### Command Boundary
 

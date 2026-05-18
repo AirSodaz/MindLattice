@@ -11,6 +11,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
+import { Badge } from '../../../shared/ui';
 import type { ReactFlowWorkbenchElements, ResolvedTheme, WorkbenchNodeKind } from '../workbenchModel';
 
 export type WorkbenchFlowNodeData = {
@@ -20,10 +21,11 @@ export type WorkbenchFlowNodeData = {
 };
 
 function WorkbenchFlowNode({ data, selected }: NodeProps<Node<WorkbenchFlowNodeData, 'workbenchNode'>>) {
+  const isDraft = data.status === 'Draft';
   return (
-    <div className={`map-node node-${data.kind} ${selected ? 'is-selected' : ''}`}>
+    <div className={`map-node node-${data.kind} ${selected ? 'is-selected' : ''} ${isDraft ? 'is-draft' : ''}`}>
       <Handle position={Position.Top} type="target" />
-      <span>{data.status === 'Draft' ? `Draft ${data.kind.replace('_', ' ')}` : data.kind.replace('_', ' ')}</span>
+      <span>{isDraft ? <Badge tone="draft">Draft</Badge> : null}{data.kind.replace('_', ' ')}</span>
       {data.title}
       <Handle position={Position.Bottom} type="source" />
     </div>
